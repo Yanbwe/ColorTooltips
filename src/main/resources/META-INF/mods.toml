@@ -13,18 +13,18 @@ modId = "forge"
 mandatory = true
 versionRange = "${forge_version_range}"
 ordering = "NONE"
-side = "BOTH"
+side = "CLIENT"
 
 [[dependencies."${mod_id}"]]
 modId = "minecraft"
 mandatory = true
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
-side = "BOTH"
+side = "CLIENT"
 
 [[dependencies."${mod_id}"]]
 modId = "raritycore"
 mandatory = true
 versionRange = "[1201.12.5,)"
 ordering = "AFTER"
-side = "BOTH"
+side = "CLIENT"
