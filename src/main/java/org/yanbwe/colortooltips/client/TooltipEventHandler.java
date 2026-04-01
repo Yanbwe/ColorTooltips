@@ -83,6 +83,8 @@ public class TooltipEventHandler {
             return false;
         }
 
+        TooltipRenderer.updateScrollOffset();
+
         int rarity = RarityRegistry.getNormalizedRarity(stack);
         int borderColor = RarityColorUtil.getRarityArgbColor(rarity);
         int darkenedBorderColor = ColorUtils.darkenColor(borderColor, 0.5f);
@@ -119,7 +121,7 @@ public class TooltipEventHandler {
         int innerY = pos.y() + borderSize + innerPadding;
 
         TooltipRenderer.drawOuterBorder(graphics, pos.x(), pos.y(), width, height, darkenedBorderColor);
-        TooltipRenderer.drawRarityBorder(graphics, pos.x(), pos.y(), width, height, borderColor);
+        graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, pos.x(), pos.y(), width, height, borderColor));
         TooltipRenderer.drawInnerBorder(graphics, pos.x(), pos.y(), width, height, darkenedBorderColor);
 
          graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, pos.x(), pos.y(), width, height, bgColor));
