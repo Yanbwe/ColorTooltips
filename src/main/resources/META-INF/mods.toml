@@ -25,6 +25,6 @@ side = "BOTH"
 [[dependencies."${mod_id}"]]
 modId = "raritycore"
 mandatory = true
-versionRange = "[1.0,)"
+versionRange = "[1201.12.5,)"
 ordering = "AFTER"
 side = "BOTH"

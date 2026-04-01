@@ -82,13 +82,13 @@ public class TooltipFadeManager {
             }
         } else {
             if (state == State.IDLE || state == State.FADING_IN) {
-                if (currentTime - lastItemTime >= 50) {
+                if (currentTime - lastItemTime >= 100) {
                     state = State.FADING_OUT;
                 } else {
                     state = State.WAITING;
                 }
             } else if (state == State.WAITING) {
-                if (currentTime - lastItemTime >= 50) {
+                if (currentTime - lastItemTime >= 100) {
                     state = State.FADING_OUT;
                 }
             }

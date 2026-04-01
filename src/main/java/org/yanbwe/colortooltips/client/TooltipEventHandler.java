@@ -146,8 +146,19 @@ public class TooltipEventHandler {
         // 使用目标尺寸获取最终位置，确保动画过程中位置稳定，不跳动
         var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
         
-        final int renderX = targetPos.x();
-        final int renderY = targetPos.y();
+        // 判断提示框是否在鼠标左侧（锚点切换判定）
+        // 增加容错范围，防止轻微偏移导致误判
+        boolean isLeft = targetPos.x() + targetWidth / 2 < x;
+        
+        // 计算目标渲染坐标（考虑左右锚点差异）
+        int targetRenderX = isLeft ? targetPos.x() + targetWidth - width : targetPos.x();
+        int targetRenderY = targetPos.y();
+        
+        // 更新并获取插值后的渲染坐标（用于左右切换的缓动）
+        org.yanbwe.colortooltips.util.TooltipAnimationManager.updatePosition(targetRenderX, targetRenderY, isLeft);
+        
+        final int renderX = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedX();
+        final int renderY = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedY();
 
         graphics.pose().pushPose();
         graphics.pose().translate(0.0, 0.0, 400.0);
@@ -206,10 +217,17 @@ public class TooltipEventHandler {
 
         if (org.yanbwe.colortooltips.util.TooltipAnimationManager.isAnimating()) {
             float progress = org.yanbwe.colortooltips.util.TooltipAnimationManager.getProgress();
-            final int finalRenderX = renderX;
-            final int finalRenderY = renderY;
+            // 使用 targetRenderX 也就是插值前的目标 X 坐标，加上 positionOffsetX 就是当前的 X
+            final int targetX = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedX() - (int)org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedX() + renderX; // wait this is just renderX.
+            
+            // 为了让入场动画始终沿着目标框体的边缘运动，我们需要传入框体的实际左上角目标坐标
+            // 无论是向左还是向右展开，目标框体的固定基准坐标都是 lastTargetX + positionOffsetX
+            // 其实就是目标位置 targetPos.x() 加上位置缓动偏移
+            int baseTargetX = targetPos.x() + (renderX - targetRenderX);
+            int baseTargetY = renderY;
+
             // 对于入场动画，如果正在淡出也需要应用透明度
-            graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, finalRenderX, finalRenderY, width, height, progress, fadeAlpha));
+            graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, baseTargetX, baseTargetY, width, height, progress, fadeAlpha, isLeft));
         }
 
         // 核心修复：必须在 disableScissor 之前调用 flush，否则所有的缓冲绘制（包括文字）都不会被裁剪

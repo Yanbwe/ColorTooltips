@@ -405,7 +405,7 @@ public class TooltipRenderer {
         RenderSystem.disableBlend();
     }
 
-    public static void drawEntryAnimation(GuiGraphics graphics, int x, int y, int width, int height, float progress, float fadeAlpha) {
+    public static void drawEntryAnimation(GuiGraphics graphics, int x, int y, int width, int height, float progress, float fadeAlpha, boolean isLeft) {
         if (progress >= 1.0f || progress < 0) return;
 
         RenderSystem.enableBlend();
@@ -425,23 +425,39 @@ public class TooltipRenderer {
         float totalDistTopRight = targetWidth + targetHeight;
         float totalDistLeftBottom = targetHeight + targetWidth;
 
-        // 顶部->右侧 白点路径计算函数
-        java.util.function.Function<Float, float[]> getTopRightPos = (p) -> {
+        // 白点1路径计算函数 (如果是左侧,则从右上角向左上角移动,然后向下;如果是右侧,从左上角向右上角,然后向下)
+        java.util.function.Function<Float, float[]> getPoint1Pos = (p) -> {
             float d = p * totalDistTopRight;
-            if (d <= targetWidth) {
-                return new float[]{x + d, y};
+            if (isLeft) {
+                if (d <= targetWidth) {
+                    return new float[]{x + targetWidth - d, y}; // 向左移动
+                } else {
+                    return new float[]{x, y + (d - targetWidth)}; // 向下移动
+                }
             } else {
-                return new float[]{x + targetWidth, y + (d - targetWidth)};
+                if (d <= targetWidth) {
+                    return new float[]{x + d, y}; // 向右移动
+                } else {
+                    return new float[]{x + targetWidth, y + (d - targetWidth)}; // 向下移动
+                }
             }
         };
 
-        // 左侧->底部 白点路径计算函数
-        java.util.function.Function<Float, float[]> getLeftBottomPos = (p) -> {
+        // 白点2路径计算函数 (如果是左侧,则从右上角向下移动,然后向左;如果是右侧,从左上角向下,然后向右)
+        java.util.function.Function<Float, float[]> getPoint2Pos = (p) -> {
             float d = p * totalDistLeftBottom;
-            if (d <= targetHeight) {
-                return new float[]{x, y + d};
+            if (isLeft) {
+                if (d <= targetHeight) {
+                    return new float[]{x + targetWidth, y + d}; // 向下移动
+                } else {
+                    return new float[]{x + targetWidth - (d - targetHeight), y + targetHeight}; // 向左移动
+                }
             } else {
-                return new float[]{x + (d - targetHeight), y + targetHeight};
+                if (d <= targetHeight) {
+                    return new float[]{x, y + d}; // 向下移动
+                } else {
+                    return new float[]{x + (d - targetHeight), y + targetHeight}; // 向右移动
+                }
             }
         };
 
@@ -490,8 +506,8 @@ public class TooltipRenderer {
         };
 
         // 绘制两个白点及其拖尾
-        drawTrail.accept(getTopRightPos, progress);
-        drawTrail.accept(getLeftBottomPos, progress);
+        drawTrail.accept(getPoint1Pos, progress);
+        drawTrail.accept(getPoint2Pos, progress);
 
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
