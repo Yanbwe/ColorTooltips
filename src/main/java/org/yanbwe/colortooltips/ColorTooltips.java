@@ -2,6 +2,7 @@ package org.yanbwe.colortooltips;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -12,12 +13,15 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
+import org.yanbwe.colortooltips.client.TooltipEventHandler;
+import org.yanbwe.colortooltips.tooltip.ColorHeaderClientTooltipComponent;
+import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
 
 @Mod(ColorTooltips.MODID)
 public class ColorTooltips {
 
     public static final String MODID = "colortooltips";
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public ColorTooltips() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -39,6 +43,12 @@ public class ColorTooltips {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             LOGGER.info("ColorTooltips clientSetup");
+            MinecraftForge.EVENT_BUS.register(TooltipEventHandler.class);
+        }
+
+        @SubscribeEvent
+        public static void onRegisterTooltipFactories(RegisterClientTooltipComponentFactoriesEvent event) {
+            event.register(ColorHeaderComponent.class, ColorHeaderClientTooltipComponent::new);
         }
     }
 }

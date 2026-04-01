@@ -121,3 +121,4 @@ runs/
 .trae
 gradle
 run-data
+.vscode
