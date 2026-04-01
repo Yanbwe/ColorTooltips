@@ -207,13 +207,27 @@ public class TooltipRenderer {
     }
 
     public static void drawOuterBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor) {
-        int outerBorderColor = (borderColor & 0x00FFFFFF) | 0x80000000;
-        graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, outerBorderColor);
+        int outerBorderColor = (borderColor & 0x00FFFFFF) | 0xC0000000;
+        // 绘制顶部边框
+        graphics.fill(x - 1, y - 1, x + width + 1, y, outerBorderColor);
+        // 绘制底部边框
+        graphics.fill(x - 1, y + height, x + width + 1, y + height + 1, outerBorderColor);
+        // 绘制左侧边框
+        graphics.fill(x - 1, y, x, y + height, outerBorderColor);
+        // 绘制右侧边框
+        graphics.fill(x + width, y, x + width + 1, y + height, outerBorderColor);
     }
 
     public static void drawInnerBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor) {
-        int innerBorderColor = (borderColor & 0x00FFFFFF) | 0x80000000;
-        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, innerBorderColor);
+        int innerBorderColor = (borderColor & 0x00FFFFFF) | 0xC0000000;
+        // 绘制顶部边框
+        graphics.fill(x + 1, y + 1, x + width - 1, y + 2, innerBorderColor);
+        // 绘制底部边框
+        graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, innerBorderColor);
+        // 绘制左侧边框
+        graphics.fill(x + 1, y + 2, x + 2, y + height - 2, innerBorderColor);
+        // 绘制右侧边框
+        graphics.fill(x + width - 2, y + 2, x + width - 1, y + height - 2, innerBorderColor);
     }
 
     public static void drawRarityBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor) {

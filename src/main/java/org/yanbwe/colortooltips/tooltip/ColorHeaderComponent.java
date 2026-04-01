@@ -53,7 +53,7 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
     public void drawItems(Font textRenderer, int x, int y, GuiGraphics context) {
         RenderingContext.startTooltipItemRendering();
         int startDrawX = x + 2;
-        int startDrawY = y + 2;
+        int startDrawY = y + 3;
         context.renderItem(this.itemStack, startDrawX, startDrawY);
         context.renderItemDecorations(textRenderer, this.itemStack, startDrawX, startDrawY);
         RenderingContext.endTooltipItemRendering();
