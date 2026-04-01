@@ -27,6 +27,14 @@ public abstract class GuiGraphicsMixin
     @Shadow(remap = false)
     private ItemStack tooltipStack = ItemStack.EMPTY;
 
+    private static final String SEARCH_TIME_REMAINING = "SearchTimeRemaining";
+
+    private boolean isItemSearching(ItemStack stack) {
+        return stack != null && !stack.isEmpty() &&
+               stack.hasTag() &&
+               stack.getTag().contains(SEARCH_TIME_REMAINING);
+    }
+
     @Inject(method = "renderTooltipInternal", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltipInternalHead(Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, CallbackInfo info)
     {
@@ -36,8 +44,13 @@ public abstract class GuiGraphicsMixin
         }
 
         ItemStack stack = !tooltipStack.isEmpty() ? tooltipStack : (components.isEmpty() ? ItemStack.EMPTY : null);
-        if (stack != null && TooltipEventHandler.renderCustomTooltip((GuiGraphics)(Object)this, font, components, x, y, positioner, stack)) {
-            info.cancel();
+        if (stack != null) {
+            if (isItemSearching(stack)) {
+                return;
+            }
+            if (TooltipEventHandler.renderCustomTooltip((GuiGraphics)(Object)this, font, components, x, y, positioner, stack)) {
+                info.cancel();
+            }
         }
     }
 

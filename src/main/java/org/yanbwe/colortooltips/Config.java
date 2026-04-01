@@ -22,20 +22,20 @@ public class Config {
     static {
         BUILDER.push("options");
 
-        ENABLED = BUILDER.comment("是否启用彩色提示框").define("enabled", true);
-        BG_ALPHA = BUILDER.comment("背景透明度 (0.0-1.0)").defineInRange("bgAlpha", 0.8, 0.0, 1.0);
-        BG_DARKEN = BUILDER.comment("背景暗度系数").defineInRange("bgDarken", 0.7, 0.0, 1.0);
-        BORDER_GRADIENT_ENABLED = BUILDER.comment("是否启用边框渐变效果").define("borderGradientEnabled", true);
-        TITLEBAR_GRADIENT_ENABLED = BUILDER.comment("是否启用标题栏渐变效果").define("titlebarGradientEnabled", true);
+        ENABLED = BUILDER.comment("Enable colored tooltips").define("enabled", true);
+        BG_ALPHA = BUILDER.comment("Background alpha (0.0-1.0)").defineInRange("bgAlpha", 0.8, 0.0, 1.0);
+        BG_DARKEN = BUILDER.comment("Background darken factor").defineInRange("bgDarken", 0.7, 0.0, 1.0);
+        BORDER_GRADIENT_ENABLED = BUILDER.comment("Enable border gradient effect").define("borderGradientEnabled", true);
+        TITLEBAR_GRADIENT_ENABLED = BUILDER.comment("Enable titlebar gradient effect").define("titlebarGradientEnabled", true);
 
         BUILDER.pop();
-        
+
         BUILDER.push("color_variation");
-        
-        HUE_VARIATION = BUILDER.comment("色相变化幅度 (0.0-1.0)").defineInRange("hueVariation", 0.1, 0.0, 1.0);
-        VALUE_VARIATION = BUILDER.comment("明度变化幅度 (0.0-1.0)").defineInRange("valueVariation", 0.4, 0.0, 1.0);
-        SATURATION_VARIATION = BUILDER.comment("饱和度变化幅度 (0.0-1.0)").defineInRange("saturationVariation", 0.1, 0.0, 1.0);
-        
+
+        HUE_VARIATION = BUILDER.comment("Hue variation range (0.0-1.0)").defineInRange("hueVariation", 0.1, 0.0, 1.0);
+        VALUE_VARIATION = BUILDER.comment("Value variation range (0.0-1.0)").defineInRange("valueVariation", 0.4, 0.0, 1.0);
+        SATURATION_VARIATION = BUILDER.comment("Saturation variation range (0.0-1.0)").defineInRange("saturationVariation", 0.1, 0.0, 1.0);
+
         BUILDER.pop();
     }
 
