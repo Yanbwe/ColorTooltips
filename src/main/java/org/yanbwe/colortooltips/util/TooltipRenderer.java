@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.Util;
+import org.yanbwe.colortooltips.Config;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -15,7 +16,8 @@ public class TooltipRenderer {
 
     private static float scrollOffset = 0;
     private static long lastRenderTime = 0;
-    private static final Map<Integer, int[]> colorCache = new HashMap<>();
+    // 缓存每种稀有度对应的 HSV 偏移量,避免每帧重复计算且保证过渡平滑
+    private static final Map<Integer, float[][]> hsvOffsetCache = new HashMap<>();
 
     public static void updateScrollOffset() {
         long currentTime = Util.getMillis();
@@ -88,33 +90,49 @@ public class TooltipRenderer {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    public static void drawGradientScrollingBorder(GuiGraphics graphics, int x, int y, int width, int height, int rarityColor) {
-        int[] colors = colorCache.computeIfAbsent(rarityColor, k -> {
-            int[] genColors = new int[4];
-            float[] hsv = rgbToHsv(k);
+    public static void drawGradientScrollingBorder(GuiGraphics graphics, int x, int y, int width, int height, int rarityColor, float fadeAlpha) {
+        int targetColor = TooltipAnimationManager.getTargetBorderColor();
+        float[][] offsets = hsvOffsetCache.computeIfAbsent(targetColor, k -> {
+            float[][] genOffsets = new float[4][3];
             Random rand = new Random(k);
             for (int i = 0; i < 4; i++) {
-                float h = hsv[0] + (rand.nextFloat() * 0.1f - 0.05f);
-                if (h < 0) h += 1;
-                if (h > 1) h -= 1;
-                float s = hsv[1];
-                float v = hsv[2] + (rand.nextFloat() * 0.2f - 0.1f);
-                if (v < 0) v = 0;
-                if (v > 1) v = 1;
-                genColors[i] = hsvToRgb(h, s, v);
-                genColors[i] = (genColors[i] & 0x00FFFFFF) | (k & 0xFF000000);
+                float hueVariation = Config.HUE_VARIATION.get().floatValue();
+                float valueVariation = Config.VALUE_VARIATION.get().floatValue();
+                float saturationVariation = Config.SATURATION_VARIATION.get().floatValue();
+                
+                genOffsets[i][0] = rand.nextFloat() * hueVariation - hueVariation / 2;
+                genOffsets[i][1] = rand.nextFloat() * saturationVariation - saturationVariation / 2;
+                genOffsets[i][2] = rand.nextFloat() * valueVariation - valueVariation / 2;
             }
+            // 固定打乱顺序
+            Random shuffleRand = new Random(k);
             for (int i = 0; i < 4; i++) {
-                int swapIdx = rand.nextInt(4);
-                int temp = genColors[i];
-                genColors[i] = genColors[swapIdx];
-                genColors[swapIdx] = temp;
+                int swapIdx = shuffleRand.nextInt(4);
+                float[] temp = genOffsets[i];
+                genOffsets[i] = genOffsets[swapIdx];
+                genOffsets[swapIdx] = temp;
             }
-            return genColors;
+            return genOffsets;
         });
 
+        // 基于当前的插值颜色,应用稳定的 HSV 偏移量
+        int[] colors = new int[4];
+        float[] baseHsv = rgbToHsv(rarityColor);
+        int alphaPart = rarityColor & 0xFF000000;
+        for (int i = 0; i < 4; i++) {
+            float h = (baseHsv[0] + offsets[i][0] + 1.0f) % 1.0f;
+            float s = Math.max(0, Math.min(1.0f, baseHsv[1] + offsets[i][1]));
+            float v = Math.max(0, Math.min(1.0f, baseHsv[2] + offsets[i][2]));
+            colors[i] = (hsvToRgb(h, s, v) & 0x00FFFFFF) | alphaPart;
+        }
+
+        int targetWidth = TooltipAnimationManager.isAnimating() ? TooltipAnimationManager.getTargetWidth() : width;
+        int targetHeight = TooltipAnimationManager.isAnimating() ? TooltipAnimationManager.getTargetHeight() : height;
+        
         int P = 2 * width + 2 * height;
-        if (P <= 0) return;
+        int targetP = 2 * targetWidth + 2 * targetHeight;
+        
+        if (P <= 0 || targetP <= 0) return;
 
         List<Float> points = new ArrayList<>();
         points.add(0f);
@@ -125,8 +143,10 @@ public class TooltipRenderer {
 
         float[] cp = new float[4];
         for (int i = 0; i < 4; i++) {
-            cp[i] = (scrollOffset + i * P / 4f) % P;
-            if (cp[i] < 0) cp[i] += P;
+            float targetCpDist = (scrollOffset + i * targetP / 4f) % targetP;
+            if (targetCpDist < 0) targetCpDist += targetP;
+            
+            cp[i] = targetCpDist * (P / (float) targetP);
             points.add(cp[i]);
         }
 
@@ -155,12 +175,12 @@ public class TooltipRenderer {
             float ratio2 = (relD2 % (P / 4f)) / (P / 4f);
             int color2 = interpolateColor(colors[idx2 % 4], colors[(idx2 + 1) % 4], ratio2);
 
-            float a1 = ((color1 >> 24) & 0xFF) / 255f;
+            float a1 = (((color1 >> 24) & 0xFF) / 255f) * fadeAlpha;
             float r1 = ((color1 >> 16) & 0xFF) / 255f;
             float g1 = ((color1 >> 8) & 0xFF) / 255f;
             float b1 = (color1 & 0xFF) / 255f;
 
-            float a2 = ((color2 >> 24) & 0xFF) / 255f;
+            float a2 = (((color2 >> 24) & 0xFF) / 255f) * fadeAlpha;
             float r2 = ((color2 >> 16) & 0xFF) / 255f;
             float g2 = ((color2 >> 8) & 0xFF) / 255f;
             float b2 = (color2 & 0xFF) / 255f;
@@ -185,7 +205,6 @@ public class TooltipRenderer {
                 // Bottom edge (d increases from right to left)
                 float x1 = x + width - (d1 - width - height);
                 float x2 = x + width - (d2 - width - height);
-                // Note: x1 is > x2, so we draw from x2 to x1 to keep standard quad winding, or just keep same winding
                 consumer.vertex(matrix, x2, y + height - 1, 0).color(r2, g2, b2, a2).endVertex();
                 consumer.vertex(matrix, x2, y + height, 0).color(r2, g2, b2, a2).endVertex();
                 consumer.vertex(matrix, x1, y + height, 0).color(r1, g1, b1, a1).endVertex();
@@ -194,7 +213,6 @@ public class TooltipRenderer {
                 // Left edge (d increases from bottom to top)
                 float y1 = y + height - (d1 - 2 * width - height);
                 float y2 = y + height - (d2 - 2 * width - height);
-                // Note: y1 is > y2
                 consumer.vertex(matrix, x, y2, 0).color(r2, g2, b2, a2).endVertex();
                 consumer.vertex(matrix, x, y1, 0).color(r1, g1, b1, a1).endVertex();
                 consumer.vertex(matrix, x + 1, y1, 0).color(r1, g1, b1, a1).endVertex();
@@ -206,38 +224,61 @@ public class TooltipRenderer {
         RenderSystem.disableBlend();
     }
 
-    public static void drawOuterBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor) {
-        int outerBorderColor = (borderColor & 0x00FFFFFF) | 0xC0000000;
-        // 绘制顶部边框
+    public static void drawOuterBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor, float fadeAlpha) {
+        int alpha = (int) (((borderColor >> 24) & 0xFF) * fadeAlpha);
+        int outerBorderColor = (borderColor & 0x00FFFFFF) | (alpha << 24);
+        
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+
         graphics.fill(x - 1, y - 1, x + width + 1, y, outerBorderColor);
-        // 绘制底部边框
         graphics.fill(x - 1, y + height, x + width + 1, y + height + 1, outerBorderColor);
-        // 绘制左侧边框
         graphics.fill(x - 1, y, x, y + height, outerBorderColor);
-        // 绘制右侧边框
         graphics.fill(x + width, y, x + width + 1, y + height, outerBorderColor);
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
     }
 
-    public static void drawInnerBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor) {
-        int innerBorderColor = (borderColor & 0x00FFFFFF) | 0xC0000000;
-        // 绘制顶部边框
+    public static void drawInnerBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor, float fadeAlpha) {
+        int alpha = (int) (((borderColor >> 24) & 0xFF) * fadeAlpha);
+        int innerBorderColor = (borderColor & 0x00FFFFFF) | (alpha << 24);
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+
         graphics.fill(x + 1, y + 1, x + width - 1, y + 2, innerBorderColor);
-        // 绘制底部边框
         graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, innerBorderColor);
-        // 绘制左侧边框
         graphics.fill(x + 1, y + 2, x + 2, y + height - 2, innerBorderColor);
-        // 绘制右侧边框
         graphics.fill(x + width - 2, y + 2, x + width - 1, y + height - 2, innerBorderColor);
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
     }
 
-    public static void drawRarityBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor) {
-        graphics.fillGradient(x, y, x + width, y + 1, borderColor, borderColor);
-        graphics.fillGradient(x, y + height - 1, x + width, y + height, borderColor, borderColor);
-        graphics.fillGradient(x, y, x + 1, y + height, borderColor, borderColor);
-        graphics.fillGradient(x + width - 1, y, x + width, y + height, borderColor, borderColor);
+    public static void drawRarityBorder(GuiGraphics graphics, int x, int y, int width, int height, int borderColor, float fadeAlpha) {
+        int alpha = (int) (((borderColor >> 24) & 0xFF) * fadeAlpha);
+        int finalColor = (borderColor & 0x00FFFFFF) | (alpha << 24);
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+
+        graphics.fillGradient(x, y, x + width, y + 1, finalColor, finalColor);
+        graphics.fillGradient(x, y + height - 1, x + width, y + height, finalColor, finalColor);
+        graphics.fillGradient(x, y, x + 1, y + height, finalColor, finalColor);
+        graphics.fillGradient(x + width - 1, y, x + width, y + height, finalColor, finalColor);
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
     }
 
-    public static void drawBackground(GuiGraphics graphics, int x, int y, int width, int height, int bgColor) {
+    public static void drawBackground(GuiGraphics graphics, int x, int y, int width, int height, int bgColor, float fadeAlpha) {
+        int alpha = (int) (((bgColor >> 24) & 0xFF) * fadeAlpha);
+        int finalColor = (bgColor & 0x00FFFFFF) | (alpha << 24);
+
         int bgX1 = x + 2;
         int bgY1 = y + 2;
         int bgX2 = x + width - 2;
@@ -247,30 +288,73 @@ public class TooltipRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableDepthTest();
 
-        graphics.fill(bgX1, bgY1, bgX2, bgY2, bgColor);
+        graphics.fill(bgX1, bgY1, bgX2, bgY2, finalColor);
 
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
     }
 
-    public static void drawGradientTitleBar(GuiGraphics graphics, int x, int y, int width, int height, int rarityColor) {
-        int barX1 = x + 2;
+    public static void drawGradientTitleBar(GuiGraphics graphics, int x, int y, int width, int height, int rarityColor, float fadeAlpha) {
+        int targetColor = TooltipAnimationManager.getTargetBorderColor();
+        float[][] offsets = hsvOffsetCache.computeIfAbsent(targetColor + 1, k -> {
+            float[][] genOffsets = new float[4][3];
+            Random rand = new Random(k);
+            for (int i = 0; i < 4; i++) {
+                float hueVariation = Config.HUE_VARIATION.get().floatValue();
+                float valueVariation = Config.VALUE_VARIATION.get().floatValue();
+                float saturationVariation = Config.SATURATION_VARIATION.get().floatValue();
+                
+                genOffsets[i][0] = rand.nextFloat() * hueVariation - hueVariation / 2;
+                genOffsets[i][1] = rand.nextFloat() * saturationVariation - saturationVariation / 2;
+                genOffsets[i][2] = rand.nextFloat() * valueVariation - valueVariation / 2;
+            }
+            Random shuffleRand = new Random(k);
+            for (int i = 0; i < 4; i++) {
+                int swapIdx = shuffleRand.nextInt(4);
+                float[] temp = genOffsets[i];
+                genOffsets[i] = genOffsets[swapIdx];
+                genOffsets[swapIdx] = temp;
+            }
+            return genOffsets;
+        });
+
+        // 基于当前的插值颜色,应用稳定的 HSV 偏移量
+        int[] colors = new int[4];
+        float[] baseHsv = rgbToHsv(rarityColor);
+        int alphaPart = rarityColor & 0xFF000000;
+        for (int i = 0; i < 4; i++) {
+            float h = (baseHsv[0] + offsets[i][0] + 1.0f) % 1.0f;
+            float s = Math.max(0, Math.min(1.0f, baseHsv[1] + offsets[i][1]));
+            float v = Math.max(0, Math.min(1.0f, baseHsv[2] + offsets[i][2]));
+            colors[i] = (hsvToRgb(h, s, v) & 0x00FFFFFF) | alphaPart;
+        }
+
+        int targetWidth = TooltipAnimationManager.isAnimating() ? TooltipAnimationManager.getTargetWidth() : width;
+        int targetHeight = TooltipAnimationManager.isAnimating() ? TooltipAnimationManager.getTargetHeight() : height;
+        int P = 2 * targetWidth + 2 * targetHeight;
+        if (P <= 0) return;
+
         int barY1 = y + 2;
-        int barX2 = x + width - 2;
         int barY2 = barY1 + 24;
 
-        int leftColor = rarityColor;
-        int rightColor = rarityColor & 0x00FFFFFF;
+        float startD = 2;
+        float endD = width - 2;
+        if (endD <= startD) return;
 
-        float leftA = ((leftColor >> 24) & 0xff) / 255f;
-        float leftR = ((leftColor >> 16) & 0xff) / 255f;
-        float leftG = ((leftColor >> 8) & 0xff) / 255f;
-        float leftB = (leftColor & 0xff) / 255f;
+        List<Float> points = new ArrayList<>();
+        points.add(startD);
+        points.add(endD);
 
-        float rightA = ((rightColor >> 24) & 0xff) / 255f;
-        float rightR = ((rightColor >> 16) & 0xff) / 255f;
-        float rightG = ((rightColor >> 8) & 0xff) / 255f;
-        float rightB = (rightColor & 0xff) / 255f;
+        float[] cp = new float[4];
+        for (int i = 0; i < 4; i++) {
+            cp[i] = (scrollOffset + i * P / 4f) % P;
+            if (cp[i] < 0) cp[i] += P;
+            if (cp[i] > startD && cp[i] < endD) {
+                points.add(cp[i]);
+            }
+        }
+
+        Collections.sort(points);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -279,10 +363,135 @@ public class TooltipRenderer {
         var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
         var matrix = graphics.pose().last().pose();
 
-        consumer.vertex(matrix, barX1, barY1, 0).color(leftR, leftG, leftB, leftA).endVertex();
-        consumer.vertex(matrix, barX1, barY2, 0).color(leftR, leftG, leftB, leftA).endVertex();
-        consumer.vertex(matrix, barX2, barY2, 0).color(rightR, rightG, rightB, rightA).endVertex();
-        consumer.vertex(matrix, barX2, barY1, 0).color(rightR, rightG, rightB, rightA).endVertex();
+        float baseAlpha = (((rarityColor >> 24) & 0xff) / 255f) * fadeAlpha;
+
+        for (int i = 0; i < points.size() - 1; i++) {
+            float d1 = points.get(i);
+            float d2 = points.get(i + 1);
+            if (Math.abs(d2 - d1) < 0.1f) continue;
+
+            float relD1 = (d1 - cp[0] + P) % P;
+            float relD2 = (d2 - cp[0] + P) % P;
+
+            int idx1 = (int) (relD1 / (P / 4f));
+            float ratio1 = (relD1 % (P / 4f)) / (P / 4f);
+            int color1 = interpolateColor(colors[idx1 % 4], colors[(idx1 + 1) % 4], ratio1);
+
+            int idx2 = (int) (relD2 / (P / 4f));
+            float ratio2 = (relD2 % (P / 4f)) / (P / 4f);
+            int color2 = interpolateColor(colors[idx2 % 4], colors[(idx2 + 1) % 4], ratio2);
+
+            float r1 = ((color1 >> 16) & 0xFF) / 255f;
+            float g1 = ((color1 >> 8) & 0xFF) / 255f;
+            float b1 = (color1 & 0xFF) / 255f;
+
+            float r2 = ((color2 >> 16) & 0xFF) / 255f;
+            float g2 = ((color2 >> 8) & 0xFF) / 255f;
+            float b2 = (color2 & 0xFF) / 255f;
+
+            float a1 = baseAlpha * (1.0f - (d1 - startD) / (endD - startD));
+            float a2 = baseAlpha * (1.0f - (d2 - startD) / (endD - startD));
+
+            float x1 = x + d1;
+            float x2 = x + d2;
+
+            consumer.vertex(matrix, x1, barY1, 0).color(r1, g1, b1, a1).endVertex();
+            consumer.vertex(matrix, x1, barY2, 0).color(r1, g1, b1, a1).endVertex();
+            consumer.vertex(matrix, x2, barY2, 0).color(r2, g2, b2, a2).endVertex();
+            consumer.vertex(matrix, x2, barY1, 0).color(r2, g2, b2, a2).endVertex();
+        }
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
+    }
+
+    public static void drawEntryAnimation(GuiGraphics graphics, int x, int y, int width, int height, float progress, float fadeAlpha) {
+        if (progress >= 1.0f || progress < 0) return;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+
+        var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
+        var matrix = graphics.pose().last().pose();
+
+        // 拖尾参数,增加分段数和拖尾长度
+        int tailSegments = 30; // 分段数越大越平滑
+        float tailLengthFactor = 0.8f; // 增加拖尾长度,相对于总路径比例
+
+        // 使用目标尺寸计算路径,保证白点在动画过程中运动轨迹是平滑且固定的
+        int targetWidth = TooltipAnimationManager.getTargetWidth();
+        int targetHeight = TooltipAnimationManager.getTargetHeight();
+        float totalDistTopRight = targetWidth + targetHeight;
+        float totalDistLeftBottom = targetHeight + targetWidth;
+
+        // 顶部->右侧 白点路径计算函数
+        java.util.function.Function<Float, float[]> getTopRightPos = (p) -> {
+            float d = p * totalDistTopRight;
+            if (d <= targetWidth) {
+                return new float[]{x + d, y};
+            } else {
+                return new float[]{x + targetWidth, y + (d - targetWidth)};
+            }
+        };
+
+        // 左侧->底部 白点路径计算函数
+        java.util.function.Function<Float, float[]> getLeftBottomPos = (p) -> {
+            float d = p * totalDistLeftBottom;
+            if (d <= targetHeight) {
+                return new float[]{x, y + d};
+            } else {
+                return new float[]{x + (d - targetHeight), y + targetHeight};
+            }
+        };
+
+        // 绘制拖尾的辅助方法
+        java.util.function.BiConsumer<java.util.function.Function<Float, float[]>, Float> drawTrail = (posFunc, currentProgress) -> {
+            for (int i = 0; i < tailSegments; i++) {
+                float segmentProgress = currentProgress - (currentProgress * tailLengthFactor * (i / (float) tailSegments));
+                if (segmentProgress < 0) segmentProgress = 0;
+
+                float nextProgress = currentProgress - (currentProgress * tailLengthFactor * ((i + 1) / (float) tailSegments));
+                if (nextProgress < 0) nextProgress = 0;
+
+                float[] pos1 = posFunc.apply(segmentProgress);
+                float[] pos2 = posFunc.apply(nextProgress);
+
+                float alpha1 = (float) Math.pow(1.0f - (i / (float) tailSegments), 0.5f);
+                float alpha2 = (float) Math.pow(1.0f - ((i + 1) / (float) tailSegments), 0.5f);
+
+                // 随着动画整体进度,整体变透明消失,采用更平缓的曲线
+                float globalFade = 1.0f - (float) Math.pow(currentProgress, 2);
+                alpha1 *= globalFade * fadeAlpha; // 应用淡出透明度
+                alpha2 *= globalFade * fadeAlpha; // 应用淡出透明度
+
+                // 绘制线段 (这里用宽度为2像素的小四边形代替线段,确保在所有角度下可见)
+                float dx = pos2[0] - pos1[0];
+                float dy = pos2[1] - pos1[1];
+                float len = (float) Math.sqrt(dx * dx + dy * dy);
+                
+                if (len > 0.001f) {
+                    float nx = -dy / len;
+                    float ny = dx / len;
+                    float thickness = 1.0f; // 粗细
+                    
+                    consumer.vertex(matrix, pos2[0] + nx * thickness, pos2[1] + ny * thickness, 0).color(1f, 1f, 1f, alpha2).endVertex();
+                    consumer.vertex(matrix, pos2[0] - nx * thickness, pos2[1] - ny * thickness, 0).color(1f, 1f, 1f, alpha2).endVertex();
+                    consumer.vertex(matrix, pos1[0] - nx * thickness, pos1[1] - ny * thickness, 0).color(1f, 1f, 1f, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] + nx * thickness, pos1[1] + ny * thickness, 0).color(1f, 1f, 1f, alpha1).endVertex();
+                } else if (i == 0) {
+                    // 对于非常小的移动或者头部点,直接绘制一个小方块
+                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] - 1, 0).color(1f, 1f, 1f, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] + 1, 0).color(1f, 1f, 1f, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] + 1, 0).color(1f, 1f, 1f, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] - 1, 0).color(1f, 1f, 1f, alpha1).endVertex();
+                }
+            }
+        };
+
+        // 绘制两个白点及其拖尾
+        drawTrail.accept(getTopRightPos, progress);
+        drawTrail.accept(getLeftBottomPos, progress);
 
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();

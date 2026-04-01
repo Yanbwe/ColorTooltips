@@ -1,5 +1,6 @@
 package org.yanbwe.colortooltips.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.util.Either;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,6 +9,7 @@ import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositione
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.event.RenderTooltipEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.yanbwe.colortooltips.Config;
@@ -74,6 +76,20 @@ public class TooltipEventHandler {
         event.setBackgroundEnd(bgColor);
     }
 
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onScreenClose(ScreenEvent.Closing event) {
+        org.yanbwe.colortooltips.util.TooltipAnimationManager.reset();
+        org.yanbwe.colortooltips.util.TooltipFadeManager.reset();
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
+        org.yanbwe.colortooltips.util.TooltipFadeManager.update();
+        if (org.yanbwe.colortooltips.util.TooltipFadeManager.shouldRenderCached()) {
+            org.yanbwe.colortooltips.util.TooltipFadeManager.renderCached(event.getGuiGraphics(), event.getMouseX(), event.getMouseY());
+        }
+    }
+
     public static boolean renderCustomTooltip(GuiGraphics graphics, Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, ItemStack stack) {
         if (!Config.ENABLED.get()) {
             return false;
@@ -83,18 +99,17 @@ public class TooltipEventHandler {
             return false;
         }
 
+        // 通知淡出管理器，记录当前帧正常渲染了
+        org.yanbwe.colortooltips.util.TooltipFadeManager.onTooltipRendered(stack, components, font, positioner, x, y);
+
         TooltipRenderer.updateScrollOffset();
 
         int rarity = RarityRegistry.getNormalizedRarity(stack);
-        int borderColor = RarityColorUtil.getRarityArgbColor(rarity);
-        int darkenedBorderColor = ColorUtils.darkenColor(borderColor, 0.5f);
-        int bgColor = ColorUtils.withAlpha(
-            ColorUtils.darkenColor(borderColor, 1.0f - Config.BG_DARKEN.get().floatValue()),
+        int targetRawBorderColor = RarityColorUtil.getRarityArgbColor(rarity);
+        int targetRawBgColor = ColorUtils.withAlpha(
+            ColorUtils.darkenColor(targetRawBorderColor, 1.0f - Config.BG_DARKEN.get().floatValue()),
             Config.BG_ALPHA.get().floatValue()
         );
-
-        currentBorderColor = borderColor;
-        currentBgColor = bgColor;
 
         int contentWidth = 0;
         int contentHeight = 0;
@@ -109,23 +124,53 @@ public class TooltipEventHandler {
 
         int borderSize = 1;
         int innerPadding = 2;
-        int width = contentWidth + borderSize * 2 + innerPadding * 2;
-        int height = contentHeight + borderSize * 2 + innerPadding * 2 + heightAdjust;
+        int targetWidth = contentWidth + borderSize * 2 + innerPadding * 2;
+        int targetHeight = contentHeight + borderSize * 2 + innerPadding * 2 + heightAdjust;
 
-        var pos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, width, height);
+        // 更新动画管理器（处理尺寸和颜色过渡）
+        org.yanbwe.colortooltips.util.TooltipAnimationManager.update(stack, targetWidth, targetHeight, targetRawBorderColor, targetRawBgColor);
+        
+        // 获取插值后的状态
+        int width = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedWidth();
+        int height = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedHeight();
+        final int borderColor = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedBorderColor();
+        final int bgColor = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedBgColor();
+        final int darkenedBorderColor = ColorUtils.darkenColor(borderColor, 0.5f);
+        
+        float fadeAlpha = org.yanbwe.colortooltips.util.TooltipFadeManager.getFadeAlpha();
+
+        // 缓存当前正在渲染的颜色，供淡出使用
+        currentBorderColor = borderColor;
+        currentBgColor = bgColor;
+
+        // 使用目标尺寸获取最终位置，确保动画过程中位置稳定，不跳动
+        var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
+        
+        final int renderX = targetPos.x();
+        final int renderY = targetPos.y();
 
         graphics.pose().pushPose();
         graphics.pose().translate(0.0, 0.0, 400.0);
 
-        int innerX = pos.x() + borderSize + innerPadding;
-        int innerY = pos.y() + borderSize + innerPadding;
+        int innerX = renderX + borderSize + innerPadding;
+        int innerY = renderY + borderSize + innerPadding;
 
-        TooltipRenderer.drawOuterBorder(graphics, pos.x(), pos.y(), width, height, darkenedBorderColor);
-        graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, pos.x(), pos.y(), width, height, borderColor));
-        TooltipRenderer.drawInnerBorder(graphics, pos.x(), pos.y(), width, height, darkenedBorderColor);
+        // 开启裁剪以确保超出过渡大小的内容不显示，允许外扩 2 像素以保证 1px 的外边框能正常渲染
+        graphics.enableScissor(renderX - 2, renderY - 2, renderX + width + 2, renderY + height + 2);
 
-         graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, pos.x(), pos.y(), width, height, bgColor));
-         graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, pos.x(), pos.y(), width, height, borderColor));
+        // 绘制边框和背景（使用插值后的尺寸和颜色）
+        TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
+        if (Config.BORDER_GRADIENT_ENABLED.get()) {
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderColor, fadeAlpha));
+        } else {
+            TooltipRenderer.drawRarityBorder(graphics, renderX, renderY, width, height, borderColor, fadeAlpha);
+        }
+        TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
+
+        graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, bgColor, fadeAlpha));
+        if (Config.TITLEBAR_GRADIENT_ENABLED.get()) {
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, borderColor, fadeAlpha));
+        }
 
         int componentX = innerX;
         int componentY = innerY;
@@ -135,12 +180,42 @@ public class TooltipEventHandler {
                 componentY += titleBarExtraHeight;
             }
             ClientTooltipComponent component = components.get(i);
+            
+            // 如果处于淡出/淡入过程,通过设置 Shader Color 和积极刷新来应用透明度
+            if (fadeAlpha < 1.0f) {
+                graphics.flush();
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fadeAlpha);
+                graphics.setColor(1.0f, 1.0f, 1.0f, fadeAlpha);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+            }
+
+            // 渲染文字和图片
             component.renderText(font, componentX, componentY, graphics.pose().last().pose(), graphics.bufferSource());
             component.renderImage(font, componentX, componentY, graphics);
+
+            if (fadeAlpha < 1.0f) {
+                graphics.flush();
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+                graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                RenderSystem.disableBlend();
+            }
+            
             componentY += component.getHeight();
         }
 
+        if (org.yanbwe.colortooltips.util.TooltipAnimationManager.isAnimating()) {
+            float progress = org.yanbwe.colortooltips.util.TooltipAnimationManager.getProgress();
+            final int finalRenderX = renderX;
+            final int finalRenderY = renderY;
+            // 对于入场动画，如果正在淡出也需要应用透明度
+            graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, finalRenderX, finalRenderY, width, height, progress, fadeAlpha));
+        }
+
+        // 核心修复：必须在 disableScissor 之前调用 flush，否则所有的缓冲绘制（包括文字）都不会被裁剪
         graphics.flush();
+        graphics.disableScissor();
+
         graphics.pose().popPose();
 
         return true;
