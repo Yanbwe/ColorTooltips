@@ -99,7 +99,7 @@ public class TooltipEventHandler {
             return false;
         }
 
-        // 通知淡出管理器，记录当前帧正常渲染了
+        // 通知淡出管理器,记录当前帧正常渲染了
         org.yanbwe.colortooltips.util.TooltipFadeManager.onTooltipRendered(stack, components, font, positioner, x, y);
 
         TooltipRenderer.updateScrollOffset();
@@ -127,7 +127,7 @@ public class TooltipEventHandler {
         int targetWidth = contentWidth + borderSize * 2 + innerPadding * 2;
         int targetHeight = contentHeight + borderSize * 2 + innerPadding * 2 + heightAdjust;
 
-        // 更新动画管理器（处理尺寸和颜色过渡）
+        // 更新动画管理器(处理尺寸和颜色过渡)
         org.yanbwe.colortooltips.util.TooltipAnimationManager.update(stack, targetWidth, targetHeight, targetRawBorderColor, targetRawBgColor);
         
         // 获取插值后的状态
@@ -139,22 +139,22 @@ public class TooltipEventHandler {
         
         float fadeAlpha = org.yanbwe.colortooltips.util.TooltipFadeManager.getFadeAlpha();
 
-        // 缓存当前正在渲染的颜色，供淡出使用
+        // 缓存当前正在渲染的颜色,供淡出使用
         currentBorderColor = borderColor;
         currentBgColor = bgColor;
 
-        // 使用目标尺寸获取最终位置，确保动画过程中位置稳定，不跳动
+        // 使用目标尺寸获取最终位置,确保动画过程中位置稳定,不跳动
         var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
         
-        // 判断提示框是否在鼠标左侧（锚点切换判定）
-        // 增加容错范围，防止轻微偏移导致误判
+        // 判断提示框是否在鼠标左侧(锚点切换判定)
+        // 增加容错范围,防止轻微偏移导致误判
         boolean isLeft = targetPos.x() + targetWidth / 2 < x;
         
-        // 计算目标渲染坐标（考虑左右锚点差异）
+        // 计算目标渲染坐标(考虑左右锚点差异)
         int targetRenderX = isLeft ? targetPos.x() + targetWidth - width : targetPos.x();
         int targetRenderY = targetPos.y();
         
-        // 更新并获取插值后的渲染坐标（用于左右切换的缓动）
+        // 更新并获取插值后的渲染坐标(用于左右切换的缓动)
         org.yanbwe.colortooltips.util.TooltipAnimationManager.updatePosition(targetRenderX, targetRenderY, isLeft);
         
         final int renderX = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedX();
@@ -166,10 +166,10 @@ public class TooltipEventHandler {
         int innerX = renderX + borderSize + innerPadding;
         int innerY = renderY + borderSize + innerPadding;
 
-        // 开启裁剪以确保超出过渡大小的内容不显示，允许外扩 2 像素以保证 1px 的外边框能正常渲染
+        // 开启裁剪以确保超出过渡大小的内容不显示,允许外扩 2 像素以保证 1px 的外边框能正常渲染
         graphics.enableScissor(renderX - 2, renderY - 2, renderX + width + 2, renderY + height + 2);
 
-        // 绘制边框和背景（使用插值后的尺寸和颜色）
+        // 绘制边框和背景(使用插值后的尺寸和颜色)
         TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
         if (Config.BORDER_GRADIENT_ENABLED.get()) {
             graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderColor, fadeAlpha));
@@ -217,20 +217,20 @@ public class TooltipEventHandler {
 
         if (org.yanbwe.colortooltips.util.TooltipAnimationManager.isAnimating()) {
             float progress = org.yanbwe.colortooltips.util.TooltipAnimationManager.getProgress();
-            // 使用 targetRenderX 也就是插值前的目标 X 坐标，加上 positionOffsetX 就是当前的 X
+            // 使用 targetRenderX 也就是插值前的目标 X 坐标,加上 positionOffsetX 就是当前的 X
             final int targetX = org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedX() - (int)org.yanbwe.colortooltips.util.TooltipAnimationManager.getInterpolatedX() + renderX; // wait this is just renderX.
             
-            // 为了让入场动画始终沿着目标框体的边缘运动，我们需要传入框体的实际左上角目标坐标
-            // 无论是向左还是向右展开，目标框体的固定基准坐标都是 lastTargetX + positionOffsetX
+            // 为了让入场动画始终沿着目标框体的边缘运动,我们需要传入框体的实际左上角目标坐标
+            // 无论是向左还是向右展开,目标框体的固定基准坐标都是 lastTargetX + positionOffsetX
             // 其实就是目标位置 targetPos.x() 加上位置缓动偏移
             int baseTargetX = targetPos.x() + (renderX - targetRenderX);
             int baseTargetY = renderY;
 
-            // 对于入场动画，如果正在淡出也需要应用透明度
+            // 对于入场动画,如果正在淡出也需要应用透明度
             graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, baseTargetX, baseTargetY, width, height, progress, fadeAlpha, isLeft));
         }
 
-        // 核心修复：必须在 disableScissor 之前调用 flush，否则所有的缓冲绘制（包括文字）都不会被裁剪
+        // 核心修复:必须在 disableScissor 之前调用 flush,否则所有的缓冲绘制(包括文字)都不会被裁剪
         graphics.flush();
         graphics.disableScissor();
 
