@@ -7,7 +7,7 @@ public class TooltipAnimator {
     private static final float POSITION_SPEED = 16.0f;
     private static final float SIZE_SPEED = 14.0f;
     private static final float ALPHA_SPEED = 18.0f;
-    private static final float TRANSITION_SPEED = 12.0f;
+    private static final float TRANSITION_SPEED = 8.0f;
     private static final float SWITCH_OFFSET_SPEED = 14.0f;
     private static final long COLOR_ANIMATION_DURATION_MS = 250L;
 
@@ -57,6 +57,7 @@ public class TooltipAnimator {
         target = newTarget;
         if (!initialized) {
             initialized = true;
+            lastTickTimeMs = 0L;
             state.width = newTarget.width;
             state.height = newTarget.height;
             state.anchorX = newTarget.anchorX;
@@ -86,6 +87,21 @@ public class TooltipAnimator {
             return;
         }
         state.transitionProgress = 0.0f;
+        lastTickTimeMs = 0L;
+    }
+
+    public void resetAlpha() {
+        if (!initialized) {
+            return;
+        }
+        state.alpha = 1.0f;
+    }
+
+    public void resetAlphaToZero() {
+        if (!initialized) {
+            return;
+        }
+        state.alpha = 0.0f;
     }
 
     public int getTargetWidthInt() {

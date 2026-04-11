@@ -71,30 +71,26 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
         context.pose().scale(scale, scale, 1.0f);
         context.pose().translate(-(startDrawX + 8), -(startDrawY + 8), 0);
 
-        var minecraft = net.minecraft.client.Minecraft.getInstance();
-        var itemRenderer = minecraft.getItemRenderer();
+        if (fadeAlpha < 0.999f) {
+            // 淡入/淡出过程:通过着色器透明度控制渲染透明度
+            context.flush();
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fadeAlpha);
+            context.setColor(1.0f, 1.0f, 1.0f, fadeAlpha);
+            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
 
-        // 始终使用着色器透明度控制，确保淡入淡出效果一致
-        context.flush();
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fadeAlpha);
+            // 使用直接的方法渲染物品
+            context.renderItem(this.itemStack, startDrawX, startDrawY);
+            context.renderItemDecorations(textRenderer, this.itemStack, startDrawX, startDrawY);
 
-        var bufferSource = context.bufferSource();
-        MultiBufferSource wrapped = rt -> {
-            RenderType target = rt;
-            String rtName = rt.toString();
-            if (rtName.contains("solid") || rtName.contains("cutout")) {
-                target = RenderType.entityTranslucent(InventoryMenu.BLOCK_ATLAS);
-            }
-            return bufferSource.getBuffer(target);
-        };
-
-        itemRenderer.renderStatic(this.itemStack, ItemDisplayContext.GUI, 0xF000F0, OverlayTexture.NO_OVERLAY, context.pose(), wrapped, minecraft.level, 0);
-        context.renderItemDecorations(textRenderer, this.itemStack, startDrawX, startDrawY);
-
-        context.flush();
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+            context.flush();
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+            context.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+            com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        } else {
+            context.renderItem(this.itemStack, startDrawX, startDrawY);
+            context.renderItemDecorations(textRenderer, this.itemStack, startDrawX, startDrawY);
+        }
 
         context.pose().popPose();
 

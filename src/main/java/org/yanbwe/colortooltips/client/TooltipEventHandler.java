@@ -227,7 +227,7 @@ public class TooltipEventHandler {
             ClientTooltipComponent component = components.get(i);
             
             // 通过 Shader 透明度控制组件渲染透明度
-            if (fadeAlpha < 1.0f) {
+            if (fadeAlpha < 0.999f) {
                 graphics.flush();
                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fadeAlpha);
                 graphics.setColor(1.0f, 1.0f, 1.0f, fadeAlpha);
@@ -239,7 +239,7 @@ public class TooltipEventHandler {
             component.renderText(font, componentX, componentY, graphics.pose().last().pose(), graphics.bufferSource());
             component.renderImage(font, componentX, componentY, graphics);
 
-            if (fadeAlpha < 1.0f) {
+            if (fadeAlpha < 0.999f) {
                 graphics.flush();
                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                 graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);

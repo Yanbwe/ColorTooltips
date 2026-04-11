@@ -6,6 +6,7 @@ import net.minecraft.world.item.ItemStack;
 public class TooltipAnimationSystem {
     private static final TooltipAnimator ANIMATOR = new TooltipAnimator();
     private static final long FADE_OUT_DELAY_MS = 100L;
+    private static final long FADE_IN_DURATION_MS = 100L;
     private static final long SWITCH_FLASH_DURATION_MS = 250L;
     private static TooltipState lastState = new TooltipState();
     private static ItemStack activeStack = ItemStack.EMPTY;
@@ -13,6 +14,7 @@ public class TooltipAnimationSystem {
     private static long lostCandidateStartTimeMs;
     private static boolean visibleRequested;
     private static long switchFlashStartTimeMs = -1L;
+    private static long fadeInStartTimeMs = -1L;
 
     static {
         ANIMATOR.reset();
@@ -38,8 +40,8 @@ public class TooltipAnimationSystem {
         long now = Util.getMillis();
         if (activeStack.isEmpty()) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SHOW_FROM_HIDDEN);
-            TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SWITCH_ITEM);
             activeStack = stack.copy();
+            fadeInStartTimeMs = now;
         } else if (!ItemStack.isSameItemSameTags(activeStack, stack)) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SWITCH_ITEM);
             activeStack = stack.copy();
@@ -69,7 +71,23 @@ public class TooltipAnimationSystem {
     }
 
     public static float computeTargetAlpha() {
-        return visibleRequested ? 1.0f : 0.0f;
+        if (!visibleRequested) {
+            return 0.0f;
+        }
+        
+        if (fadeInStartTimeMs < 0L) {
+            return 1.0f;
+        }
+        
+        long now = Util.getMillis();
+        long elapsed = now - fadeInStartTimeMs;
+        if (elapsed >= FADE_IN_DURATION_MS) {
+            fadeInStartTimeMs = -1L;
+            return 1.0f;
+        }
+        
+        float progress = Math.max(0.0f, Math.min(1.0f, elapsed / (float) FADE_IN_DURATION_MS));
+        return easeOutCubic(progress);
     }
 
     public static float getItemScale() {
@@ -115,6 +133,7 @@ public class TooltipAnimationSystem {
         lostCandidateStartTimeMs = 0L;
         visibleRequested = false;
         switchFlashStartTimeMs = -1L;
+        fadeInStartTimeMs = -1L;
         TooltipLifecycleEventBus.clear();
         ANIMATOR.reset();
         lastState = ANIMATOR.tickAndGet();
@@ -123,7 +142,11 @@ public class TooltipAnimationSystem {
     private static void processEvents() {
         TooltipLifecycleEventType eventType;
         while ((eventType = TooltipLifecycleEventBus.poll()) != null) {
-            if (eventType == TooltipLifecycleEventType.SWITCH_ITEM) {
+            if (eventType == TooltipLifecycleEventType.SHOW_FROM_HIDDEN) {
+                ANIMATOR.resetAlphaToZero();
+                ANIMATOR.restartTransition();
+            } else if (eventType == TooltipLifecycleEventType.SWITCH_ITEM) {
+                ANIMATOR.resetAlpha();
                 ANIMATOR.restartTransition();
                 switchFlashStartTimeMs = Util.getMillis();
             }
