@@ -66,7 +66,7 @@ public class TooltipAnimationManager {
             targetBgColor = currentBgColor;
             hasLastPosition = false; // 首次显示时重置位置状态
             
-            // 确保淡入时也能触发动画（用于物品大小缓动等）
+            // 确保淡入时也能触发动画(用于物品大小缓动等)
             currentStack = newStack.copy();
             animationStartTime = Util.getMillis();
             isAnimating = true;
@@ -81,7 +81,7 @@ public class TooltipAnimationManager {
         if (itemChanged || sizeChanged || colorChanged) {
             if (itemChanged) {
                 currentStack = newStack.copy();
-                // 不重置 hasLastPosition，允许跨物品触发左右位置缓动
+                // 不重置 hasLastPosition,允许跨物品触发左右位置缓动
             }
             
             // 将当前的显示状态作为下一次动画的起点
@@ -190,7 +190,7 @@ public class TooltipAnimationManager {
     }
     
     /**
-     * 更新位置状态，处理左右切换时的缓动动画
+     * 更新位置状态,处理左右切换时的缓动动画
      */
     public static void updatePosition(int targetX, int targetY, boolean isLeft) {
         if (!hasLastPosition || currentStack.isEmpty()) {
@@ -219,7 +219,7 @@ public class TooltipAnimationManager {
             
             positionAnimationStartTime = Util.getMillis();
         } else {
-            // 更新当前的偏移量（根据时间缓动）
+            // 更新当前的偏移量(根据时间缓动)
             long currentTime = Util.getMillis();
             long elapsed = currentTime - positionAnimationStartTime;
             
