@@ -93,9 +93,9 @@ public class TooltipRenderer {
     private static int computeGradientColor(float pos, int[] colors) {
         float gradientPeriod = Config.GRADIENT_PERIOD.get().floatValue();
         pos = ((pos % gradientPeriod) + gradientPeriod) % gradientPeriod;
-        float segmentLen = gradientPeriod / 4f;
+        float segmentLen = gradientPeriod * 0.25f;
         int idx = (int) (pos / segmentLen);
-        float ratio = (pos % segmentLen) / segmentLen;
+        float ratio = (pos - idx * segmentLen) * (1.0f / segmentLen);
         return interpolateColor(colors[idx % 4], colors[(idx + 1) % 4], ratio);
     }
 
@@ -148,7 +148,7 @@ public class TooltipRenderer {
 
         float[] cp = new float[4];
         for (int i = 0; i < 4; i++) {
-            float targetCpDist = (scrollOffset + i * targetP / 4f) % targetP;
+            float targetCpDist = (scrollOffset + i * targetP * 0.25f) % targetP;
             if (targetCpDist < 0) targetCpDist += targetP;
             cp[i] = targetCpDist * (P / targetP);
         }
@@ -166,7 +166,7 @@ public class TooltipRenderer {
         var matrix = graphics.pose().last().pose();
 
         float[] c1 = new float[4], c2 = new float[4];
-        int segmentsPerEdge = Math.max(4, Math.max(width, height) / 8);
+        int segmentsPerEdge = Math.max(4, Math.max(width, height) / 12);
 
         // 顶边: 从左到右
         for (int i = 0; i < segmentsPerEdge; i++) {
@@ -360,8 +360,11 @@ public class TooltipRenderer {
         var matrix = graphics.pose().last().pose();
 
         float baseAlpha = (((rarityColor >> 24) & 0xff) / 255f) * fadeAlpha;
-        int segments = Math.max(4, (int) barLen / 8);
+        int segments = Math.max(4, (int) barLen / 12);
         float[] c1 = new float[4], c2 = new float[4];
+
+        float phaseScale = targetPhaseScale * barLen;
+        float phaseStart = phaseBar;
 
         for (int i = 0; i < segments; i++) {
             float t1 = (float) i / segments;
@@ -369,8 +372,8 @@ public class TooltipRenderer {
             float d1 = startD + t1 * barLen;
             float d2 = startD + t2 * barLen;
 
-            int color1 = computeGradientColor(phaseBar + t1 * barLen * targetPhaseScale, colors);
-            int color2 = computeGradientColor(phaseBar + t2 * barLen * targetPhaseScale, colors);
+            int color1 = computeGradientColor(phaseStart + t1 * phaseScale, colors);
+            int color2 = computeGradientColor(phaseStart + t2 * phaseScale, colors);
 
             float r1 = ((color1 >> 16) & 0xFF) / 255f;
             float g1 = ((color1 >> 8) & 0xFF) / 255f;
