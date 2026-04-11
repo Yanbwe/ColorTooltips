@@ -41,7 +41,6 @@ public class TooltipAnimationSystem {
         if (activeStack.isEmpty()) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SHOW_FROM_HIDDEN);
             activeStack = stack.copy();
-            fadeInStartTimeMs = now;
         } else if (!ItemStack.isSameItemSameTags(activeStack, stack)) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SWITCH_ITEM);
             activeStack = stack.copy();
@@ -145,6 +144,7 @@ public class TooltipAnimationSystem {
             if (eventType == TooltipLifecycleEventType.SHOW_FROM_HIDDEN) {
                 ANIMATOR.resetAlphaToZero();
                 ANIMATOR.restartTransition();
+                fadeInStartTimeMs = Util.getMillis();
             } else if (eventType == TooltipLifecycleEventType.SWITCH_ITEM) {
                 ANIMATOR.resetAlpha();
                 ANIMATOR.restartTransition();

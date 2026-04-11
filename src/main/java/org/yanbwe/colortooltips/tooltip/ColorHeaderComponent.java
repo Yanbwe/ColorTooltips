@@ -1,17 +1,22 @@
 package org.yanbwe.colortooltips.tooltip;
 
+import com.mojang.blaze3d.platform.Lighting;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.yanbwe.colortooltips.RenderingContext;
 import org.yanbwe.colortooltips.animation.TooltipAnimationSystem;
+import org.yanbwe.colortooltips.util.TranslucentBufferSource;
 import org.yanbwe.raritycore.registry.RarityRegistry;
 import org.yanbwe.raritycore.util.RarityColorUtil;
 
@@ -66,34 +71,63 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
 
         context.pose().pushPose();
 
-        // 将原点移到物品中心以便缩放
         context.pose().translate(startDrawX + 8, startDrawY + 8, 0);
         context.pose().scale(scale, scale, 1.0f);
         context.pose().translate(-(startDrawX + 8), -(startDrawY + 8), 0);
 
         if (fadeAlpha < 0.999f) {
-            // 淡入/淡出过程:通过着色器透明度控制渲染透明度
-            context.flush();
-            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fadeAlpha);
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fadeAlpha);
             context.setColor(1.0f, 1.0f, 1.0f, fadeAlpha);
-            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
 
-            // 使用直接的方法渲染物品
-            context.renderItem(this.itemStack, startDrawX, startDrawY);
-            context.renderItemDecorations(textRenderer, this.itemStack, startDrawX, startDrawY);
+            renderItemWithTranslucentSupport(context, this.itemStack, startDrawX, startDrawY);
 
             context.flush();
-            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             context.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-            com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+            RenderSystem.disableBlend();
         } else {
-            context.renderItem(this.itemStack, startDrawX, startDrawY);
-            context.renderItemDecorations(textRenderer, this.itemStack, startDrawX, startDrawY);
+            renderItemWithTranslucentSupport(context, this.itemStack, startDrawX, startDrawY);
         }
 
         context.pose().popPose();
 
         RenderingContext.endTooltipItemRendering();
+    }
+
+    private void renderItemWithTranslucentSupport(GuiGraphics context, ItemStack stack, int x, int y) {
+        Minecraft minecraft = Minecraft.getInstance();
+        ItemRenderer itemRenderer = minecraft.getItemRenderer();
+        BakedModel bakedModel = itemRenderer.getModel(stack, minecraft.level, minecraft.player, 0);
+
+        context.pose().pushPose();
+        context.pose().translate(x + 8, y + 8, 150 + (bakedModel.isGui3d() ? 0 : 0));
+        context.pose().mulPoseMatrix(new org.joml.Matrix4f().scaling(1.0f, -1.0f, 1.0f));
+        context.pose().scale(16.0f, 16.0f, 16.0f);
+
+        boolean useFlatLighting = !bakedModel.usesBlockLight();
+        if (useFlatLighting) {
+            Lighting.setupForFlatItems();
+        }
+
+        TranslucentBufferSource translucentSource = TranslucentBufferSource.wrap(context.bufferSource());
+        itemRenderer.render(
+            stack,
+            ItemDisplayContext.GUI,
+            false,
+            context.pose(),
+            translucentSource,
+            LightTexture.FULL_BRIGHT,
+            OverlayTexture.NO_OVERLAY,
+            bakedModel
+        );
+        context.flush();
+
+        if (useFlatLighting) {
+            Lighting.setupFor3DItems();
+        }
+
+        context.pose().popPose();
     }
 }
