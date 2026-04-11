@@ -44,6 +44,10 @@ public class TooltipEventHandler {
             return;
         }
 
+        if (isVirtualItem(itemStack)) {
+            return;
+        }
+
         var tooltipElements = event.getTooltipElements();
 
         boolean hasTextComponent = !tooltipElements.isEmpty() && tooltipElements.get(0).left().isPresent();
@@ -131,6 +135,12 @@ public class TooltipEventHandler {
         }
 
         if (components.isEmpty()) {
+            return false;
+        }
+
+        boolean isVirtual = isVirtualItem(stack);
+
+        if (isVirtual) {
             return false;
         }
 
@@ -261,5 +271,9 @@ public class TooltipEventHandler {
         graphics.pose().popPose();
 
         return true;
+    }
+
+    public static boolean isVirtualItem(ItemStack itemStack) {
+        return itemStack != null && !itemStack.isEmpty() && itemStack.getTooltipImage().isPresent();
     }
 }
