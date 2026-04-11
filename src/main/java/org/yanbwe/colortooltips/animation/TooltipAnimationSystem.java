@@ -30,10 +30,12 @@ public class TooltipAnimationSystem {
         return lastState;
     }
 
-    public static void onLiveItemObserved(ItemStack stack) {
+    public static void onLiveItemObserved(ItemStack stack, float currentAnchorY) {
         if (stack == null || stack.isEmpty()) {
             return;
         }
+
+        TooltipLockManager.onAnchorPositionUpdated(currentAnchorY);
 
         long now = Util.getMillis();
         if (activeStack.isEmpty()) {
@@ -50,6 +52,10 @@ public class TooltipAnimationSystem {
     }
 
     public static void onFrameWithoutLiveItem() {
+        if (TooltipLockManager.shouldPreventTooltipHide()) {
+            return;
+        }
+
         if (activeStack.isEmpty()) {
             return;
         }
@@ -134,6 +140,19 @@ public class TooltipAnimationSystem {
         TooltipLifecycleEventBus.clear();
         ANIMATOR.reset();
         lastState = ANIMATOR.tickAndGet();
+        TooltipLockManager.reset();
+    }
+
+    public static float getLockOffsetY() {
+        return TooltipLockManager.getOffsetY();
+    }
+
+    public static boolean isLocked() {
+        return TooltipLockManager.hasValidLock();
+    }
+
+    public static float getLockedAnchorY() {
+        return TooltipLockManager.getLockedAnchorY();
     }
 
     private static void processEvents() {

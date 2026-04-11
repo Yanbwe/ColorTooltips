@@ -150,7 +150,6 @@ public class TooltipEventHandler {
             cachedComponents = new ArrayList<>(components);
             cachedFont = font;
             cachedPositioner = positioner;
-            TooltipAnimationSystem.onLiveItemObserved(stack);
         }
 
         TooltipRenderer.updateScrollOffset();
@@ -174,12 +173,24 @@ public class TooltipEventHandler {
         int targetWidth = contentWidth + borderSize * 2 + innerPadding * 2;
         int targetHeight = contentHeight + borderSize * 2 + innerPadding * 2 + heightAdjust;
 
-        // 使用目标尺寸获取目标锚点
         var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
         boolean isLeft = targetPos.x() + targetWidth / 2 < x;
         TooltipAnchor anchor = isLeft ? TooltipAnchor.RIGHT_TOP : TooltipAnchor.LEFT_TOP;
         float anchorX = isLeft ? targetPos.x() + targetWidth : targetPos.x();
-        float anchorY = targetPos.y();
+
+        float anchorY;
+        if (liveRender && !isReplayPhase) {
+            if (TooltipAnimationSystem.isLocked()) {
+                anchorY = TooltipAnimationSystem.getLockedAnchorY() + TooltipAnimationSystem.getLockOffsetY();
+            } else {
+                anchorY = targetPos.y();
+            }
+            TooltipAnimationSystem.onLiveItemObserved(stack, anchorY);
+        } else if (TooltipAnimationSystem.isLocked()) {
+            anchorY = TooltipAnimationSystem.getLockedAnchorY() + TooltipAnimationSystem.getLockOffsetY();
+        } else {
+            anchorY = targetPos.y();
+        }
 
         TooltipTarget target = new TooltipTarget(
                 targetWidth,

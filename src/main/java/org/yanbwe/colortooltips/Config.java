@@ -27,12 +27,13 @@ public class Config {
     public static final ForgeConfigSpec.DoubleValue ITEM_SCALE_MIN;
     public static final ForgeConfigSpec.DoubleValue GRADIENT_PERIOD;
     public static final ForgeConfigSpec.DoubleValue SCROLL_SPEED;
+    public static final ForgeConfigSpec.DoubleValue LOCK_SCROLL_SENSITIVITY;
 
     static {
         BUILDER.push("options");
 
         ENABLED = BUILDER.comment("启用彩色提示框 / Enable colored tooltips").define("enabled", true);
-        BG_ALPHA = BUILDER.comment("背景透明度 (0.0-1.0) / Background alpha").defineInRange("bgAlpha", 0.8, 0.0, 1.0);
+        BG_ALPHA = BUILDER.comment("背景透明度 (0.0-1.0) / Background alpha").defineInRange("bgAlpha", 0.97, 0.0, 1.0);
         BG_DARKEN = BUILDER.comment("背景暗度 / Background darken factor").defineInRange("bgDarken", 0.7, 0.0, 1.0);
         BORDER_GRADIENT_ENABLED = BUILDER.comment("启用边框渐变效果 / Enable border gradient effect").define("borderGradientEnabled", true);
         TITLEBAR_GRADIENT_ENABLED = BUILDER.comment("启用标题栏渐变效果 / Enable titlebar gradient effect").define("titlebarGradientEnabled", true);
@@ -63,6 +64,12 @@ public class Config {
 
         GRADIENT_PERIOD = BUILDER.comment("颜色渐变周期 (50-500) / Gradient period").defineInRange("gradientPeriod", 200.0, 50.0, 500.0);
         SCROLL_SPEED = BUILDER.comment("颜色滚动速度 (0.01-0.2) / Scroll speed").defineInRange("scrollSpeed", 0.05, 0.01, 0.2);
+
+        BUILDER.pop();
+
+        BUILDER.push("tooltip_lock");
+
+        LOCK_SCROLL_SENSITIVITY = BUILDER.comment("锁定时滚轮灵敏度 (1.0-20.0) / Lock scroll sensitivity").defineInRange("lockScrollSensitivity", 10.0, 1.0, 20.0);
 
         BUILDER.pop();
     }

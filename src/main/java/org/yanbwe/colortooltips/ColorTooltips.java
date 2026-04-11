@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.yanbwe.colortooltips.client.TooltipEventHandler;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderClientTooltipComponent;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
+import org.yanbwe.colortooltips.animation.TooltipLockManager;
 
 @Mod(ColorTooltips.MODID)
 public class ColorTooltips {
@@ -44,6 +45,7 @@ public class ColorTooltips {
         public static void onClientSetup(FMLClientSetupEvent event) {
             LOGGER.info("ColorTooltips clientSetup");
             MinecraftForge.EVENT_BUS.register(TooltipEventHandler.class);
+            MinecraftForge.EVENT_BUS.register(TooltipLockManager.class);
         }
 
         @SubscribeEvent
