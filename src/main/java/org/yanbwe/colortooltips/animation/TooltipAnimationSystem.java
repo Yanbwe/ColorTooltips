@@ -2,12 +2,10 @@ package org.yanbwe.colortooltips.animation;
 
 import net.minecraft.Util;
 import net.minecraft.world.item.ItemStack;
+import org.yanbwe.colortooltips.Config;
 
 public class TooltipAnimationSystem {
     private static final TooltipAnimator ANIMATOR = new TooltipAnimator();
-    private static final long FADE_OUT_DELAY_MS = 100L;
-    private static final long FADE_IN_DURATION_MS = 100L;
-    private static final long SWITCH_FLASH_DURATION_MS = 250L;
     private static TooltipState lastState = new TooltipState();
     private static ItemStack activeStack = ItemStack.EMPTY;
     private static long lastVisibleTimeMs;
@@ -61,7 +59,7 @@ public class TooltipAnimationSystem {
             return;
         }
 
-        if (now - lostCandidateStartTimeMs >= FADE_OUT_DELAY_MS) {
+        if (now - lostCandidateStartTimeMs >= Config.FADE_OUT_DELAY.get()) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.LOST_CONFIRMED);
             activeStack = ItemStack.EMPTY;
             visibleRequested = false;
@@ -80,18 +78,18 @@ public class TooltipAnimationSystem {
         
         long now = Util.getMillis();
         long elapsed = now - fadeInStartTimeMs;
-        if (elapsed >= FADE_IN_DURATION_MS) {
+        if (elapsed >= Config.FADE_IN_DURATION.get()) {
             fadeInStartTimeMs = -1L;
             return 1.0f;
         }
-        
-        float progress = Math.max(0.0f, Math.min(1.0f, elapsed / (float) FADE_IN_DURATION_MS));
+
+        float progress = Math.max(0.0f, Math.min(1.0f, elapsed / (float) Config.FADE_IN_DURATION.get()));
         return easeOutCubic(progress);
     }
 
     public static float getItemScale() {
         float t = easeOutCubic(lastState.transitionProgress);
-        return 0.5f + 0.5f * t;
+        return Config.ITEM_SCALE_MIN.get().floatValue() + (1.0f - Config.ITEM_SCALE_MIN.get().floatValue()) * t;
     }
 
     public static float getTransitionProgress() {
@@ -115,10 +113,10 @@ public class TooltipAnimationSystem {
             return -1.0f;
         }
         long elapsed = Util.getMillis() - switchFlashStartTimeMs;
-        if (elapsed >= SWITCH_FLASH_DURATION_MS) {
+        if (elapsed >= Config.SWITCH_FLASH_DURATION.get()) {
             return -1.0f;
         }
-        float t = Math.max(0.0f, Math.min(1.0f, elapsed / (float) SWITCH_FLASH_DURATION_MS));
+        float t = Math.max(0.0f, Math.min(1.0f, elapsed / (float) Config.SWITCH_FLASH_DURATION.get()));
         return easeOutCubic(t);
     }
 

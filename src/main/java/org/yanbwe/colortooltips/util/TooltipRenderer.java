@@ -24,7 +24,7 @@ public class TooltipRenderer {
         if (lastRenderTime != 0) {
             long delta = currentTime - lastRenderTime;
             if (delta < 100) {
-                scrollOffset += delta * 0.05f; // 调整此值以改变滚动速度
+                scrollOffset += delta * Config.SCROLL_SPEED.get().floatValue();
             }
         }
         lastRenderTime = currentTime;
@@ -90,11 +90,10 @@ public class TooltipRenderer {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    private static final float GRADIENT_PERIOD = 200.0f;
-
     private static int computeGradientColor(float pos, int[] colors) {
-        pos = ((pos % GRADIENT_PERIOD) + GRADIENT_PERIOD) % GRADIENT_PERIOD;
-        float segmentLen = GRADIENT_PERIOD / 4f;
+        float gradientPeriod = Config.GRADIENT_PERIOD.get().floatValue();
+        pos = ((pos % gradientPeriod) + gradientPeriod) % gradientPeriod;
+        float segmentLen = gradientPeriod / 4f;
         int idx = (int) (pos / segmentLen);
         float ratio = (pos % segmentLen) / segmentLen;
         return interpolateColor(colors[idx % 4], colors[(idx + 1) % 4], ratio);
@@ -145,7 +144,7 @@ public class TooltipRenderer {
 
         float P = 2.0f * (width + height);
         float targetP = 2.0f * (targetWidth + targetHeight);
-        float targetPhaseScale = GRADIENT_PERIOD / targetP;
+        float targetPhaseScale = Config.GRADIENT_PERIOD.get().floatValue() / targetP;
 
         float[] cp = new float[4];
         for (int i = 0; i < 4; i++) {
@@ -350,7 +349,7 @@ public class TooltipRenderer {
 
         float barLen = endD - startD;
         float targetP = 2.0f * (targetWidth + targetHeight);
-        float targetPhaseScale = GRADIENT_PERIOD / targetP;
+        float targetPhaseScale = Config.GRADIENT_PERIOD.get().floatValue() / targetP;
         float phaseBar = -scrollOffset * targetPhaseScale;
 
         RenderSystem.enableBlend();
@@ -406,9 +405,10 @@ public class TooltipRenderer {
         var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
         var matrix = graphics.pose().last().pose();
 
-        // 拖尾参数,增加分段数和拖尾长度
-        int tailSegments = 30; // 分段数越大越平滑
-        float tailLengthFactor = 0.8f; // 增加拖尾长度,相对于总路径比例
+        // 拖尾参数
+        int tailSegments = Config.SWITCH_TAIL_SEGMENTS.get();
+        float tailLengthFactor = Config.SWITCH_TAIL_LENGTH.get().floatValue();
+        float alphaExponent = Config.SWITCH_TAIL_ALPHA_EXPONENT.get().floatValue();
 
         // 使用目标尺寸计算路径,保证白点在动画过程中运动轨迹是平滑且固定的
         int targetWidth = width;
@@ -464,8 +464,8 @@ public class TooltipRenderer {
                 float[] pos1 = posFunc.apply(segmentProgress);
                 float[] pos2 = posFunc.apply(nextProgress);
 
-                float alpha1 = (float) Math.pow(1.0f - (i / (float) tailSegments), 0.5f);
-                float alpha2 = (float) Math.pow(1.0f - ((i + 1) / (float) tailSegments), 0.5f);
+                float alpha1 = (float) Math.pow(1.0f - (i / (float) tailSegments), alphaExponent);
+                float alpha2 = (float) Math.pow(1.0f - ((i + 1) / (float) tailSegments), alphaExponent);
 
                 // 随着动画整体进度,整体变透明消失,采用更平缓的曲线
                 float globalFade = 1.0f - (float) Math.pow(currentProgress, 2);
