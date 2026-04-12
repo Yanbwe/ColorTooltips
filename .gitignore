@@ -122,3 +122,5 @@ runs/
 gradle
 run-data
 .vscode
+.settings/
+bin
