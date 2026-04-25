@@ -11,6 +11,7 @@ public class Config {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
     public static final ForgeConfigSpec.BooleanValue ENABLED;
+    public static final ForgeConfigSpec.BooleanValue CUSTOM_HEADER_ENABLED;
     public static final ForgeConfigSpec.DoubleValue BG_ALPHA;
     public static final ForgeConfigSpec.DoubleValue BG_DARKEN;
     public static final ForgeConfigSpec.BooleanValue BORDER_GRADIENT_ENABLED;
@@ -33,6 +34,7 @@ public class Config {
         BUILDER.push("options");
 
         ENABLED = BUILDER.comment("启用彩色提示框 / Enable colored tooltips").define("enabled", true);
+        CUSTOM_HEADER_ENABLED = BUILDER.comment("启用自定义标题栏（物品图标+白色名称+稀有度文字），关闭则保留原版物品名称。未安装 RarityCore 时强制禁用 / Enable custom header (item icon + white name + rarity text), disable to keep vanilla item name. Forced disabled without RarityCore").define("customHeaderEnabled", true);
         BG_ALPHA = BUILDER.comment("背景透明度 (0.0-1.0) / Background alpha").defineInRange("bgAlpha", 0.97, 0.0, 1.0);
         BG_DARKEN = BUILDER.comment("背景暗度 / Background darken factor").defineInRange("bgDarken", 0.7, 0.0, 1.0);
         BORDER_GRADIENT_ENABLED = BUILDER.comment("启用边框渐变效果 / Enable border gradient effect").define("borderGradientEnabled", true);
@@ -69,7 +71,7 @@ public class Config {
 
         BUILDER.push("tooltip_lock");
 
-        LOCK_SCROLL_SENSITIVITY = BUILDER.comment("锁定时滚轮灵敏度 (1.0-20.0) / Lock scroll sensitivity").defineInRange("lockScrollSensitivity", 10.0, 1.0, 20.0);
+        LOCK_SCROLL_SENSITIVITY = BUILDER.comment("滚轮移动提示框灵敏度 (1.0-20.0) / Scroll sensitivity for tooltip movement").defineInRange("lockScrollSensitivity", 10.0, 1.0, 20.0);
 
         BUILDER.pop();
     }

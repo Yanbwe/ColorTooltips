@@ -2,7 +2,7 @@ package org.yanbwe.colortooltips.tooltip;
 
 import net.minecraft.world.item.ItemStack;
 import org.yanbwe.colortooltips.Config;
-import org.yanbwe.raritycore.registry.RarityRegistry;
+import org.yanbwe.colortooltips.compat.RarityCoreProxy;
 
 /**
  * 智能判断是否渲染提示框的各个组件
@@ -48,11 +48,15 @@ public final class TooltipRenderPolicy {
      * 是否应该显示稀有度文本
      */
     public static boolean shouldShowRarity(ItemStack stack) {
+        // 没有 RarityCore 时隐藏稀有度提示
+        if (!RarityCoreProxy.isLoaded()) {
+            return false;
+        }
         if (!hasValidItemStack(stack)) {
             return false;
         }
         // 检查实际稀有度，不是默认稀有度
-        int rarity = RarityRegistry.getNormalizedRarity(stack);
+        int rarity = RarityCoreProxy.getNormalizedRarity(stack);
         return rarity > 0;
     }
 
@@ -93,13 +97,17 @@ public final class TooltipRenderPolicy {
     /**
      * 获取稀有度颜色
      * 如果没有有效物品，返回默认灰色
+     * 没有 RarityCore 时返回白色
      */
     public static int getRarityColor(ItemStack stack) {
         if (!hasValidItemStack(stack)) {
             return 0xFF808080; // 默认灰色
         }
-        int rarity = RarityRegistry.getNormalizedRarity(stack);
-        return org.yanbwe.raritycore.util.RarityColorUtil.getRarityArgbColor(rarity);
+        if (!RarityCoreProxy.isLoaded()) {
+            return RarityCoreProxy.FALLBACK_BORDER_COLOR;
+        }
+        int rarity = RarityCoreProxy.getNormalizedRarity(stack);
+        return RarityCoreProxy.getRarityArgbColor(rarity);
     }
 
     /**
@@ -110,7 +118,7 @@ public final class TooltipRenderPolicy {
         if (!hasValidItemStack(stack)) {
             return 1; // 普通稀有度
         }
-        return RarityRegistry.getNormalizedRarity(stack);
+        return RarityCoreProxy.getNormalizedRarity(stack);
     }
 
     /**
@@ -118,8 +126,11 @@ public final class TooltipRenderPolicy {
      * 无物品时返回稀有度1（普通）的颜色
      */
     public static int getRenderingColor(ItemStack stack) {
+        if (!RarityCoreProxy.isLoaded()) {
+            return RarityCoreProxy.FALLBACK_BORDER_COLOR;
+        }
         int rarity = getRarity(stack);
-        return org.yanbwe.raritycore.util.RarityColorUtil.getRarityArgbColor(rarity);
+        return RarityCoreProxy.getRarityArgbColor(rarity);
     }
 
     /**

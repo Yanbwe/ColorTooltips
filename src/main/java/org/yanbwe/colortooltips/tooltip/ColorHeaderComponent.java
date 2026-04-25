@@ -16,9 +16,8 @@ import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.yanbwe.colortooltips.RenderingContext;
 import org.yanbwe.colortooltips.animation.TooltipAnimationSystem;
+import org.yanbwe.colortooltips.compat.RarityCoreProxy;
 import org.yanbwe.colortooltips.util.TranslucentBufferSource;
-import org.yanbwe.raritycore.registry.RarityRegistry;
-import org.yanbwe.raritycore.util.RarityColorUtil;
 
 public class ColorHeaderComponent implements net.minecraft.world.inventory.tooltip.TooltipComponent {
     private static final int ITEM_OFFSET = 24;
@@ -28,14 +27,22 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
     private final Component nameText;
     private final Component rarityText;
     private final int rarityColor;
+    private final boolean hasRarityCore;
 
     public ColorHeaderComponent(ItemStack itemStack) {
         this.itemStack = itemStack;
         this.nameText = Component.literal(itemStack.getItem().getName(itemStack).getString());
-        int rarity = RarityRegistry.getNormalizedRarity(itemStack);
-        this.rarityColor = RarityColorUtil.getRarityArgbColor(rarity);
-        String rarityName = RarityRegistry.getLocalizedRarityTooltip(itemStack.getItem());
-        this.rarityText = Component.literal(rarityName);
+        this.hasRarityCore = RarityCoreProxy.isLoaded();
+
+        if (hasRarityCore) {
+            int rarity = RarityCoreProxy.getNormalizedRarity(itemStack);
+            this.rarityColor = RarityCoreProxy.getRarityArgbColor(rarity);
+            String rarityName = RarityCoreProxy.getLocalizedRarityTooltip(itemStack.getItem());
+            this.rarityText = Component.literal(rarityName);
+        } else {
+            this.rarityColor = RarityCoreProxy.FALLBACK_BORDER_COLOR;
+            this.rarityText = null;
+        }
     }
 
     public int getHeight() {
@@ -44,8 +51,11 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
 
     public int getWidth(Font textRenderer) {
         int nameWidth = textRenderer.width(this.nameText);
-        int rarityWidth = textRenderer.width(this.rarityText);
-        return Math.max(nameWidth, rarityWidth) + ITEM_OFFSET + SPACING;
+        if (hasRarityCore && this.rarityText != null) {
+            int rarityWidth = textRenderer.width(this.rarityText);
+            return Math.max(nameWidth, rarityWidth) + ITEM_OFFSET + SPACING;
+        }
+        return nameWidth + ITEM_OFFSET + SPACING;
     }
 
     public int getTitleOffset() {
@@ -54,11 +64,18 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
 
     public void drawText(Font textRenderer, int x, int y, Matrix4f matrix, MultiBufferSource.BufferSource vertexConsumers) {
         float startDrawX = (float) x + ITEM_OFFSET;
-        float startDrawY = y + 1;
-        
-        textRenderer.drawInBatch(this.nameText.getVisualOrderText(), startDrawX, startDrawY, -1, true, matrix, vertexConsumers, Font.DisplayMode.NORMAL, 0, 0xF000F0);
-        startDrawY += textRenderer.lineHeight + 2;
-        textRenderer.drawInBatch(this.rarityText.getVisualOrderText(), startDrawX, startDrawY, this.rarityColor | 0xFF000000, true, matrix, vertexConsumers, Font.DisplayMode.NORMAL, 0, 0xF000F0);
+
+        if (hasRarityCore && this.rarityText != null) {
+            // RarityCore 存在：上方物品名 + 下方稀有度
+            float startDrawY = y + 1;
+            textRenderer.drawInBatch(this.nameText.getVisualOrderText(), startDrawX, startDrawY, -1, true, matrix, vertexConsumers, Font.DisplayMode.NORMAL, 0, 0xF000F0);
+            startDrawY += textRenderer.lineHeight + 2;
+            textRenderer.drawInBatch(this.rarityText.getVisualOrderText(), startDrawX, startDrawY, this.rarityColor | 0xFF000000, true, matrix, vertexConsumers, Font.DisplayMode.NORMAL, 0, 0xF000F0);
+        } else {
+            // 无 RarityCore：物品名垂直居中
+            float startDrawY = y + (getHeight() - textRenderer.lineHeight) / 2.0f;
+            textRenderer.drawInBatch(this.nameText.getVisualOrderText(), startDrawX, startDrawY, -1, true, matrix, vertexConsumers, Font.DisplayMode.NORMAL, 0, 0xF000F0);
+        }
     }
 
     public void drawItems(Font textRenderer, int x, int y, GuiGraphics context) {

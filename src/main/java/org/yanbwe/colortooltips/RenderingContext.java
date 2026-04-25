@@ -1,14 +1,14 @@
 package org.yanbwe.colortooltips;
 
-import org.yanbwe.raritycore.client.RarityExclusionManager;
+import org.yanbwe.colortooltips.compat.RarityCoreProxy;
 
 public class RenderingContext {
 
     public static void startTooltipItemRendering() {
-        RarityExclusionManager.setRenderingTooltipItem(true);
+        RarityCoreProxy.startTooltipItemRendering();
     }
 
     public static void endTooltipItemRendering() {
-        RarityExclusionManager.clear();
+        RarityCoreProxy.endTooltipItemRendering();
     }
 }

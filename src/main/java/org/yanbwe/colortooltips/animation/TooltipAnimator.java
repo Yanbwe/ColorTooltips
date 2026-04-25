@@ -7,7 +7,7 @@ public class TooltipAnimator {
     private static final float SIZE_SPEED = 14.0f;
     private static final float ALPHA_SPEED = 18.0f;
     private static final float TRANSITION_SPEED = 8.0f;
-    private static final float SWITCH_OFFSET_SPEED = 28.0f;
+    private static final float SWITCH_OFFSET_SPEED = 14.0f;
 
     private TooltipTarget target;
     private final TooltipState state = new TooltipState();
@@ -68,7 +68,6 @@ public class TooltipAnimator {
             return;
         }
         state.transitionProgress = 0.0f;
-        lastTickTimeMs = 0L;
     }
 
     public void resetAlpha() {
