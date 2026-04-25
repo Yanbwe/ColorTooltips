@@ -11,6 +11,7 @@ import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositione
 import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.HoverEvent.Action;
@@ -22,6 +23,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.yanbwe.colortooltips.client.TooltipEventHandler;
+import org.yanbwe.colortooltips.compat.ApotheosisCompat;
 import org.yanbwe.colortooltips.tooltip.TooltipRenderPolicy;
 
 @Mixin(value = GuiGraphics.class, priority = 1001)
@@ -45,6 +47,16 @@ public abstract class GuiGraphicsMixin
     @Inject(method = "renderTooltipInternal", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltipInternalHead(Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, CallbackInfo info)
     {
+        // 神化模组兼容：重铸结果槽 / 回收台等场景下，完全放行原版渲染。
+        // 同时 onGatherComponents 和 onRenderTooltipColor 事件处理中也会做兼容。
+        if (minecraft.screen != null && minecraft.screen instanceof AbstractContainerScreen<?> containerScreen)
+        {
+            Slot slot = containerScreen.getSlotUnderMouse();
+            if (ApotheosisCompat.shouldSkipTooltip(minecraft.screen, slot)) {
+                return; // 完全放行原版渲染，两套提示框都不干涉
+            }
+        }
+
         // 尝试从当前屏幕的 slot 获取物品
         if (tooltipStack.isEmpty() && minecraft.screen != null && minecraft.screen instanceof AbstractContainerScreen<?> containerScreen && containerScreen.getSlotUnderMouse() != null)
         {

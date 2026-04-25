@@ -1,0 +1,8 @@
+{
+  "gui.colortooltips.missing_raritycore.title": "Notice",
+  "gui.colortooltips.missing_raritycore.message": "ColorTooltips is built around RarityCore. While it can run without RarityCore, you will lose the mod's core feature -- 'Colorful'. It is highly recommended to install RarityCore.\n\nIf you do not wish to see this message again, you can disable it in the config file, or use the button below.",
+  "gui.colortooltips.missing_raritycore.btn.acknowledge": "I understand, let me play",
+  "gui.colortooltips.missing_raritycore.btn.modrinth": "RarityCore on Modrinth",
+  "gui.colortooltips.missing_raritycore.btn.curseforge": "RarityCore on CurseForge",
+  "gui.colortooltips.missing_raritycore.btn.disable": "Don't remind me again!"
+}

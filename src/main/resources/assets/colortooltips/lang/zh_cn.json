@@ -1,0 +1,8 @@
+{
+  "gui.colortooltips.missing_raritycore.title": "提示",
+  "gui.colortooltips.missing_raritycore.message": "ColorTooltips是围绕RarityCore进行打造的，虽然不安装RarityCore也能运行，但是会失去本模组的一大特色--'Colorful'，因此非常建议安装RarityCore。\n\n如果你不想再看到这个提示，你可以在配置文件里禁用它，或者下面的按钮也可以。",
+  "gui.colortooltips.missing_raritycore.btn.acknowledge": "我已知晓，但我想先进游戏",
+  "gui.colortooltips.missing_raritycore.btn.modrinth": "RarityCore in Modrinth",
+  "gui.colortooltips.missing_raritycore.btn.curseforge": "RarityCore in CurseForge",
+  "gui.colortooltips.missing_raritycore.btn.disable": "不要再提示我！"
+}

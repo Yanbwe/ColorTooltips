@@ -2,10 +2,13 @@ package org.yanbwe.colortooltips.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.util.Either;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.client.event.ScreenEvent;
@@ -17,6 +20,7 @@ import org.yanbwe.colortooltips.animation.TooltipAnimationSystem;
 import org.yanbwe.colortooltips.animation.TooltipLockManager;
 import org.yanbwe.colortooltips.animation.TooltipState;
 import org.yanbwe.colortooltips.animation.TooltipTarget;
+import org.yanbwe.colortooltips.compat.ApotheosisCompat;
 import org.yanbwe.colortooltips.compat.RarityCoreProxy;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
 import org.yanbwe.colortooltips.tooltip.TooltipRenderPolicy;
@@ -49,6 +53,12 @@ public class TooltipEventHandler {
             return;
         }
 
+        // 神化模组兼容：重铸结果槽 / 回收台不干涉
+        if (ApotheosisCompat.shouldSkipTooltip(Minecraft.getInstance().screen, 
+            Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> s ? s.getSlotUnderMouse() : null)) {
+            return;
+        }
+
         // 自定义标题栏开关：未启用或无 RarityCore 时不替换物品名称，保留原版
         if (!Config.CUSTOM_HEADER_ENABLED.get() || !RarityCoreProxy.isLoaded()) {
             return;
@@ -68,6 +78,12 @@ public class TooltipEventHandler {
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderTooltipColor(RenderTooltipEvent.Color event) {
         if (!Config.ENABLED.get()) {
+            return;
+        }
+
+        // 神化模组兼容：重铸结果槽 / 回收台不干涉颜色
+        if (ApotheosisCompat.shouldSkipTooltip(Minecraft.getInstance().screen,
+            Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> s ? s.getSlotUnderMouse() : null)) {
             return;
         }
 

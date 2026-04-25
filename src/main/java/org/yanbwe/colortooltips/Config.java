@@ -29,6 +29,7 @@ public class Config {
     public static final ForgeConfigSpec.DoubleValue GRADIENT_PERIOD;
     public static final ForgeConfigSpec.DoubleValue SCROLL_SPEED;
     public static final ForgeConfigSpec.DoubleValue LOCK_SCROLL_SENSITIVITY;
+    public static final ForgeConfigSpec.BooleanValue SHOW_RARITY_CORE_WARNING;
 
     static {
         BUILDER.push("options");
@@ -74,9 +75,11 @@ public class Config {
         LOCK_SCROLL_SENSITIVITY = BUILDER.comment("滚轮移动提示框灵敏度 (1.0-20.0) / Scroll sensitivity for tooltip movement").defineInRange("lockScrollSensitivity", 10.0, 1.0, 20.0);
 
         BUILDER.pop();
+
+        SHOW_RARITY_CORE_WARNING = BUILDER.comment("未安装 RarityCore 时显示警告 / Show warning when RarityCore is not installed").define("showRarityCoreWarning", true);
     }
 
-    static final ForgeConfigSpec SPEC = BUILDER.build();
+    public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
