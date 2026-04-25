@@ -279,11 +279,9 @@ public class TooltipEventHandler {
 
         graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, bgColor, fadeAlpha));
 
-        // 标题栏渐变：有 RarityCore 时用稀有度颜色，无 RarityCore 时用灰色降级基色
-        if (hasValidItem && Config.TITLEBAR_GRADIENT_ENABLED.get()) {
-            int titleBarBaseColor = RarityCoreProxy.isLoaded() ? borderColor : RarityCoreProxy.FALLBACK_GRADIENT_BAR_COLOR;
-            int titleBarSeedColor = RarityCoreProxy.isLoaded() ? targetRawBorderColor : RarityCoreProxy.FALLBACK_GRADIENT_BAR_COLOR;
-            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, titleBarBaseColor, titleBarSeedColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), components.isEmpty() ? 24 : components.get(0).getHeight()));
+        // 标题栏渐变：仅在有 RarityCore 时显示
+        if (hasValidItem && Config.TITLEBAR_GRADIENT_ENABLED.get() && RarityCoreProxy.isLoaded()) {
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, borderColor, targetRawBorderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), components.isEmpty() ? 24 : components.get(0).getHeight()));
         }
 
         int componentX = innerX;
