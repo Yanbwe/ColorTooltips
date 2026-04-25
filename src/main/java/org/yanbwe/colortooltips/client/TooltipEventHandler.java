@@ -17,6 +17,7 @@ import org.yanbwe.colortooltips.animation.TooltipAnimationSystem;
 import org.yanbwe.colortooltips.animation.TooltipState;
 import org.yanbwe.colortooltips.animation.TooltipTarget;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
+import org.yanbwe.colortooltips.tooltip.TooltipRenderPolicy;
 import org.yanbwe.colortooltips.util.ColorUtils;
 import org.yanbwe.colortooltips.util.TooltipRenderer;
 import org.yanbwe.raritycore.registry.RarityRegistry;
@@ -103,10 +104,10 @@ public class TooltipEventHandler {
         if (!renderedThisFrame) {
             TooltipAnimationSystem.onFrameWithoutLiveItem();
         }
+        // 支持纯文本tooltip的重播
         if (!renderedThisFrame
                 && TooltipAnimationSystem.shouldRenderCachedTooltip()
                 && cachedComponents != null
-                && !cachedStack.isEmpty()
                 && cachedFont != null
                 && cachedPositioner != null) {
             isReplayPhase = true;
@@ -144,18 +145,23 @@ public class TooltipEventHandler {
             return false;
         }
 
+        // 智能判断：检查是否有有效物品
+        boolean hasValidItem = TooltipRenderPolicy.hasValidItemStack(stack);
+        
+        // 无物品时使用稀有度1的颜色
+        int rarity = TooltipRenderPolicy.getRarity(stack);
+        int targetRawBorderColor = RarityColorUtil.getRarityArgbColor(rarity);
+
         if (liveRender && !isReplayPhase) {
             renderedThisFrame = true;
-            cachedStack = stack.copy();
+            // 处理空物品堆
+            cachedStack = (stack != null && !stack.isEmpty()) ? stack.copy() : ItemStack.EMPTY;
             cachedComponents = new ArrayList<>(components);
             cachedFont = font;
             cachedPositioner = positioner;
         }
 
         TooltipRenderer.updateScrollOffset();
-
-        int rarity = RarityRegistry.getNormalizedRarity(stack);
-        int targetRawBorderColor = RarityColorUtil.getRarityArgbColor(rarity);
 
         int contentWidth = 0;
         int contentHeight = 0;
@@ -164,7 +170,8 @@ public class TooltipEventHandler {
             contentHeight += component.getHeight();
         }
 
-        boolean hasExtraContent = components.size() > 1;
+        // 标题栏只在有物品时显示（components > 1 表示有ColorHeaderComponent）
+        boolean hasExtraContent = hasValidItem && components.size() > 1;
         int titleBarExtraHeight = hasExtraContent ? 1 : 0;
         int heightAdjust = hasExtraContent ? 0 : -2;
 
@@ -179,13 +186,21 @@ public class TooltipEventHandler {
         float anchorX = isLeft ? targetPos.x() + targetWidth : targetPos.x();
 
         float anchorY;
+        // 纯文本tooltip使用空物品堆
+        ItemStack animationStack = hasValidItem ? stack : ItemStack.EMPTY;
         if (liveRender && !isReplayPhase) {
             if (TooltipAnimationSystem.isLocked()) {
                 anchorY = TooltipAnimationSystem.getLockedAnchorY() + TooltipAnimationSystem.getLockOffsetY();
             } else {
                 anchorY = targetPos.y();
             }
-            TooltipAnimationSystem.onLiveItemObserved(stack, anchorY);
+            // 无论是否有有效物品都触发动画观察
+            if (hasValidItem) {
+                TooltipAnimationSystem.onLiveItemObserved(stack, anchorY);
+            } else {
+                // 纯文本tooltip也能主动触发显示
+                TooltipAnimationSystem.onTextOnlyTooltipObserved(anchorY);
+            }
         } else if (TooltipAnimationSystem.isLocked()) {
             anchorY = TooltipAnimationSystem.getLockedAnchorY() + TooltipAnimationSystem.getLockOffsetY();
         } else {
@@ -201,7 +216,7 @@ public class TooltipEventHandler {
                 targetRawBorderColor,
                 TooltipAnimationSystem.computeTargetAlpha()
         );
-        TooltipState state = TooltipAnimationSystem.update(stack, target);
+        TooltipState state = TooltipAnimationSystem.update(animationStack, target);
 
         int width = state.getWidthInt();
         int height = state.getHeightInt();
@@ -227,15 +242,17 @@ public class TooltipEventHandler {
         // 绘制边框和背景(使用插值后的尺寸和颜色)
         TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
         if (Config.BORDER_GRADIENT_ENABLED.get()) {
-            graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderColor, targetRawBorderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt()));
+            // 使用borderColor保持流动连续性，避免切换时跳跃
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderColor, borderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt()));
         } else {
             TooltipRenderer.drawRarityBorder(graphics, renderX, renderY, width, height, borderColor, fadeAlpha);
         }
         TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
 
         graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, bgColor, fadeAlpha));
-        if (Config.TITLEBAR_GRADIENT_ENABLED.get()) {
-            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, borderColor, targetRawBorderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt()));
+        // 只有有物品时才显示标题栏渐变，纯文本不显示，使用borderColor保持流动连续性
+        if (Config.TITLEBAR_GRADIENT_ENABLED.get() && hasValidItem) {
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, borderColor, borderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt()));
         }
 
         int componentX = innerX;

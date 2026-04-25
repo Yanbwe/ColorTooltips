@@ -8,6 +8,7 @@ public class TooltipAnimationSystem {
     private static final TooltipAnimator ANIMATOR = new TooltipAnimator();
     private static TooltipState lastState = new TooltipState();
     private static ItemStack activeStack = ItemStack.EMPTY;
+    private static boolean isTextOnlyMode = false; // 标记是否为纯文本模式
     private static long lastVisibleTimeMs;
     private static long lostCandidateStartTimeMs;
     private static boolean visibleRequested;
@@ -20,7 +21,8 @@ public class TooltipAnimationSystem {
     }
 
     public static TooltipState update(ItemStack stack, TooltipTarget target) {
-        if (stack == null || stack.isEmpty()) {
+        // null 检查仍然需要，但空物品堆允许继续更新
+        if (stack == null) {
             return lastState;
         }
 
@@ -28,6 +30,35 @@ public class TooltipAnimationSystem {
         processEvents();
         lastState = ANIMATOR.tickAndGet();
         return lastState;
+    }
+
+    /**
+     * 为纯文本tooltip触发动画系统
+     * 即使没有物品也能触发显示
+     */
+    public static void onTextOnlyTooltipObserved(float anchorY) {
+        TooltipLockManager.onAnchorPositionUpdated(anchorY);
+        
+        long now = Util.getMillis();
+        
+        // 无论之前是否有物品，现在都需要显示纯文本tooltip
+        if (!isTextOnlyMode) {
+            // 从有物品切换到纯文本，或首次显示纯文本
+            TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SHOW_FROM_HIDDEN);
+        }
+        
+        // 标记为纯文本模式
+        isTextOnlyMode = true;
+        visibleRequested = true;
+        lastVisibleTimeMs = now;
+        lostCandidateStartTimeMs = 0L;
+    }
+
+    /**
+     * 检查纯文本tooltip是否应该显示
+     */
+    public static boolean isTextOnlyTooltipVisible() {
+        return visibleRequested && isTextOnlyMode;
     }
 
     public static void onLiveItemObserved(ItemStack stack, float currentAnchorY) {
@@ -38,14 +69,14 @@ public class TooltipAnimationSystem {
         TooltipLockManager.onAnchorPositionUpdated(currentAnchorY);
 
         long now = Util.getMillis();
-        if (activeStack.isEmpty()) {
-            TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SHOW_FROM_HIDDEN);
-            activeStack = stack.copy();
-        } else if (!ItemStack.isSameItemSameTags(activeStack, stack)) {
+        
+        // 清除纯文本模式，切换到物品模式
+        if (isTextOnlyMode) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SWITCH_ITEM);
-            activeStack = stack.copy();
         }
-
+        
+        isTextOnlyMode = false;
+        activeStack = stack.copy();
         visibleRequested = true;
         lastVisibleTimeMs = now;
         lostCandidateStartTimeMs = 0L;
@@ -56,7 +87,8 @@ public class TooltipAnimationSystem {
             return;
         }
 
-        if (activeStack.isEmpty()) {
+        // 纯文本模式下也允许消失
+        if (activeStack.isEmpty() && !isTextOnlyMode) {
             return;
         }
         long now = Util.getMillis();
@@ -68,6 +100,7 @@ public class TooltipAnimationSystem {
         if (now - lostCandidateStartTimeMs >= Config.FADE_OUT_DELAY.get()) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.LOST_CONFIRMED);
             activeStack = ItemStack.EMPTY;
+            isTextOnlyMode = false;
             visibleRequested = false;
             lostCandidateStartTimeMs = 0L;
         }
@@ -132,6 +165,7 @@ public class TooltipAnimationSystem {
 
     public static void reset() {
         activeStack = ItemStack.EMPTY;
+        isTextOnlyMode = false;
         lastVisibleTimeMs = 0L;
         lostCandidateStartTimeMs = 0L;
         visibleRequested = false;

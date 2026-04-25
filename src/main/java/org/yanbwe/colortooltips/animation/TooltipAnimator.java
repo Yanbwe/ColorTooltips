@@ -1,7 +1,6 @@
 package org.yanbwe.colortooltips.animation;
 
 import net.minecraft.Util;
-import org.yanbwe.colortooltips.util.ColorUtils;
 
 public class TooltipAnimator {
     private static final float POSITION_SPEED = 16.0f;
@@ -9,7 +8,6 @@ public class TooltipAnimator {
     private static final float ALPHA_SPEED = 18.0f;
     private static final float TRANSITION_SPEED = 8.0f;
     private static final float SWITCH_OFFSET_SPEED = 28.0f;
-    private static final long COLOR_ANIMATION_DURATION_MS = 250L;
 
     private TooltipTarget target;
     private final TooltipState state = new TooltipState();
@@ -17,10 +15,6 @@ public class TooltipAnimator {
     private boolean initialized;
     private float switchOffsetX;
     private float switchOffsetY;
-    private int colorFromArgb;
-    private int colorToArgb;
-    private long colorAnimationStartTimeMs;
-    private boolean colorAnimating;
 
     public void reset() {
         target = null;
@@ -38,10 +32,6 @@ public class TooltipAnimator {
         state.transitionProgress = 1.0f;
         switchOffsetX = 0.0f;
         switchOffsetY = 0.0f;
-        colorFromArgb = 0xFFFFFFFF;
-        colorToArgb = 0xFFFFFFFF;
-        colorAnimationStartTimeMs = 0L;
-        colorAnimating = false;
     }
 
     public void setTarget(TooltipTarget newTarget) {
@@ -68,17 +58,8 @@ public class TooltipAnimator {
             state.colorArgb = newTarget.colorArgb;
             state.alpha = 0.0f;
             state.transitionProgress = 0.0f;
-            colorFromArgb = newTarget.colorArgb;
-            colorToArgb = newTarget.colorArgb;
-            colorAnimationStartTimeMs = 0L;
-            colorAnimating = false;
-        } else if (previousTarget != null && previousTarget.colorArgb != newTarget.colorArgb) {
-            colorFromArgb = getInterpolatedColor();
-            colorToArgb = newTarget.colorArgb;
-            colorAnimationStartTimeMs = Util.getMillis();
-            colorAnimating = true;
-        } else if (!colorAnimating) {
-            colorToArgb = newTarget.colorArgb;
+        } else {
+            state.colorArgb = newTarget.colorArgb;
         }
     }
 
@@ -137,7 +118,7 @@ public class TooltipAnimator {
         switchOffsetY = approach(switchOffsetY, 0.0f, SWITCH_OFFSET_SPEED, dt);
         state.renderOffsetX = switchOffsetX;
         state.renderOffsetY = switchOffsetY;
-        state.colorArgb = getInterpolatedColor();
+        state.colorArgb = target.colorArgb;
 
         return state.copy();
     }
@@ -160,19 +141,4 @@ public class TooltipAnimator {
         return anchorX;
     }
 
-    private int getInterpolatedColor() {
-        if (!colorAnimating) {
-            return colorToArgb;
-        }
-        long now = Util.getMillis();
-        long elapsed = now - colorAnimationStartTimeMs;
-        if (elapsed >= COLOR_ANIMATION_DURATION_MS) {
-            colorAnimating = false;
-            colorFromArgb = colorToArgb;
-            return colorToArgb;
-        }
-        float t = Math.max(0.0f, Math.min(1.0f, elapsed / (float) COLOR_ANIMATION_DURATION_MS));
-        float eased = 1.0f - (float) Math.pow(1.0f - t, 3.0f);
-        return ColorUtils.interpolateColor(colorFromArgb, colorToArgb, eased);
-    }
 }
