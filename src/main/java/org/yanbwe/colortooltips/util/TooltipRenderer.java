@@ -306,7 +306,7 @@ public class TooltipRenderer {
         RenderSystem.disableBlend();
     }
 
-    public static void drawGradientTitleBar(GuiGraphics graphics, int x, int y, int width, int height, int rarityColor, int variationSeedColor, float fadeAlpha, int targetWidth, int targetHeight) {
+    public static void drawGradientTitleBar(GuiGraphics graphics, int x, int y, int width, int height, int rarityColor, int variationSeedColor, float fadeAlpha, int targetWidth, int targetHeight, int titleBarHeight) {
         int targetColor = variationSeedColor;
         float[][] offsets = hsvOffsetCache.computeIfAbsent(targetColor + 1, k -> {
             float[][] genOffsets = new float[4][3];
@@ -341,7 +341,7 @@ public class TooltipRenderer {
         }
 
         int barY1 = y + 2;
-        int barY2 = barY1 + 24;
+        int barY2 = barY1 + titleBarHeight;
 
         float startD = 2;
         float endD = width - 2;
@@ -393,27 +393,6 @@ public class TooltipRenderer {
             consumer.vertex(matrix, x2, barY2, 0).color(r2, g2, b2, a2).endVertex();
             consumer.vertex(matrix, x2, barY1, 0).color(r2, g2, b2, a2).endVertex();
         }
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
-    }
-
-    /**
-     * 绘制纯色标题栏（无 RarityCore 时的降级方案）。
-     * 灰色条，覆盖标题区域 (y+2 ~ y+2+24)。
-     */
-    public static void drawSolidTitleBar(GuiGraphics graphics, int x, int y, int width, int height, int barColor, float fadeAlpha) {
-        int barY1 = y + 2;
-        int barY2 = Math.min(barY1 + 24, y + height - 2);
-
-        int alpha = (int) (((barColor >> 24) & 0xFF) * fadeAlpha);
-        int finalColor = (barColor & 0x00FFFFFF) | (alpha << 24);
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-
-        graphics.fill(x + 2, barY1, x + width - 2, barY2, finalColor);
 
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();

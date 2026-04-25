@@ -22,12 +22,15 @@ import org.yanbwe.colortooltips.util.TranslucentBufferSource;
 public class ColorHeaderComponent implements net.minecraft.world.inventory.tooltip.TooltipComponent {
     private static final int ITEM_OFFSET = 24;
     private static final int SPACING = 4;
+    /** 单行文本标题栏高度（无 RarityCore 时使用） */
+    private static final int SINGLE_LINE_BAR_HEIGHT = 12;
 
     private final ItemStack itemStack;
     private final Component nameText;
     private final Component rarityText;
     private final int rarityColor;
     private final boolean hasRarityCore;
+    private final int titleBarHeight;
 
     public ColorHeaderComponent(ItemStack itemStack) {
         this.itemStack = itemStack;
@@ -39,14 +42,20 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
             this.rarityColor = RarityCoreProxy.getRarityArgbColor(rarity);
             String rarityName = RarityCoreProxy.getLocalizedRarityTooltip(itemStack.getItem());
             this.rarityText = Component.literal(rarityName);
+            this.titleBarHeight = 24;
         } else {
             this.rarityColor = RarityCoreProxy.FALLBACK_BORDER_COLOR;
             this.rarityText = null;
+            this.titleBarHeight = SINGLE_LINE_BAR_HEIGHT;
         }
     }
 
     public int getHeight() {
-        return 24;
+        return titleBarHeight;
+    }
+
+    public int getTitleBarHeight() {
+        return titleBarHeight;
     }
 
     public int getWidth(Font textRenderer) {

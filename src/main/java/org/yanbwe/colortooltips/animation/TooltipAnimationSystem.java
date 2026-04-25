@@ -214,10 +214,6 @@ public class TooltipAnimationSystem {
         TooltipLockManager.reset();
     }
 
-    public static float getLockOffsetX() {
-        return TooltipLockManager.getOffsetX();
-    }
-
     public static float getLockOffsetY() {
         return TooltipLockManager.getOffsetY();
     }

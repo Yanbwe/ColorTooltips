@@ -8,19 +8,22 @@ import org.yanbwe.colortooltips.Config;
 
 public class TooltipLockManager {
     private static boolean hasValidAnchor = false;
-    private static float lockedAnchorX = 0.0f;
     private static float lockedAnchorY = 0.0f;
-    private static float offsetX = 0.0f;
     private static float offsetY = 0.0f;
 
     /**
      * 鼠标滚轮滚动时移动提示框。
-     * 普通滚动 → 上下移动
-     * Shift + 滚动 → 左右移动
+     * 按住 Shift + 滚动 → 上下移动提示框（拦截滚轮信号）
+     * 没有按 Shift → 不拦截，让滚轮事件正常传递（兼容可滚动的GUI）
      */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMouseScroll(ScreenEvent.MouseScrolled.Pre event) {
         if (!hasValidAnchor) {
+            return;
+        }
+
+        if (!Screen.hasShiftDown()) {
+            // 没有按 Shift 时不拦截，让事件正常传递
             return;
         }
 
@@ -30,25 +33,17 @@ public class TooltipLockManager {
         }
 
         float sensitivity = Config.LOCK_SCROLL_SENSITIVITY.get().floatValue();
-
-        if (Screen.hasShiftDown()) {
-            // Shift+滚动 → 左右移动
-            offsetX -= (float) (scrollDelta * sensitivity);
-        } else {
-            // 普通滚动 → 上下移动
-            offsetY -= (float) (scrollDelta * sensitivity);
-        }
+        offsetY -= (float) (scrollDelta * sensitivity);
 
         event.setCanceled(true);
     }
 
     /**
-     * 每帧由渲染逻辑调用，更新锚点位置。
-     * 接收未经过偏移的原始锚点坐标。
+     * 每帧由渲染逻辑调用，更新锚点Y位置。
+     * 接收未经过偏移的原始锚点Y坐标。
      * 不重置偏移量。
      */
-    public static void onAnchorPositionUpdated(float anchorX, float anchorY) {
-        lockedAnchorX = anchorX;
+    public static void onAnchorPositionUpdated(float anchorY) {
         lockedAnchorY = anchorY;
         hasValidAnchor = true;
     }
@@ -69,16 +64,8 @@ public class TooltipLockManager {
         return hasValidAnchor;
     }
 
-    public static float getLockedAnchorX() {
-        return lockedAnchorX;
-    }
-
     public static float getLockedAnchorY() {
         return lockedAnchorY;
-    }
-
-    public static float getOffsetX() {
-        return offsetX;
     }
 
     public static float getOffsetY() {
@@ -90,15 +77,12 @@ public class TooltipLockManager {
      * 切换物品或提示框淡入时调用。
      */
     public static void resetOffsets() {
-        offsetX = 0.0f;
         offsetY = 0.0f;
     }
 
     public static void reset() {
         hasValidAnchor = false;
-        lockedAnchorX = 0.0f;
         lockedAnchorY = 0.0f;
-        offsetX = 0.0f;
         offsetY = 0.0f;
     }
 }

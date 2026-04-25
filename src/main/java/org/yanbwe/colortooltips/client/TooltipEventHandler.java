@@ -205,12 +205,11 @@ public class TooltipEventHandler {
         var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
         boolean isLeft = targetPos.x() + targetWidth / 2 < x;
         TooltipAnchor anchor = isLeft ? TooltipAnchor.RIGHT_TOP : TooltipAnchor.LEFT_TOP;
-        float rawAnchorX = isLeft ? targetPos.x() + targetWidth : targetPos.x();
+        float anchorX = isLeft ? targetPos.x() + targetWidth : targetPos.x();
         float rawAnchorY = targetPos.y();
 
-        // 更新锚点并应用滚轮偏移（无需按T键，直接滚动即可移动）
-        TooltipLockManager.onAnchorPositionUpdated(rawAnchorX, rawAnchorY);
-        float anchorX = TooltipLockManager.getLockedAnchorX() + TooltipLockManager.getOffsetX();
+        // 更新锚点并应用滚轮偏移（按住 Shift + 滚动可上下移动提示框）
+        TooltipLockManager.onAnchorPositionUpdated(rawAnchorY);
         float anchorY = TooltipLockManager.getLockedAnchorY() + TooltipLockManager.getOffsetY();
 
         // 纯文本tooltip使用空物品堆
@@ -284,7 +283,7 @@ public class TooltipEventHandler {
         if (hasValidItem && Config.TITLEBAR_GRADIENT_ENABLED.get()) {
             int titleBarBaseColor = RarityCoreProxy.isLoaded() ? borderColor : RarityCoreProxy.FALLBACK_GRADIENT_BAR_COLOR;
             int titleBarSeedColor = RarityCoreProxy.isLoaded() ? targetRawBorderColor : RarityCoreProxy.FALLBACK_GRADIENT_BAR_COLOR;
-            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, titleBarBaseColor, titleBarSeedColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt()));
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, titleBarBaseColor, titleBarSeedColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), components.isEmpty() ? 24 : components.get(0).getHeight()));
         }
 
         int componentX = innerX;
