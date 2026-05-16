@@ -96,7 +96,7 @@ public class TooltipEventHandler {
         int bgColor;
 
         if (RarityCoreProxy.isLoaded()) {
-            int rarity = RarityCoreProxy.getNormalizedRarity(itemStack);
+            int rarity = RarityCoreProxy.getRarity(itemStack);
             borderColor = RarityCoreProxy.getRarityArgbColor(rarity);
             bgColor = ColorUtils.withAlpha(
                 ColorUtils.darkenColor(borderColor, 1.0f - Config.BG_DARKEN.get().floatValue()),

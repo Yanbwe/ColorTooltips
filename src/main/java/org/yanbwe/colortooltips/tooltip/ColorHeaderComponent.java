@@ -38,9 +38,9 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
         this.hasRarityCore = RarityCoreProxy.isLoaded();
 
         if (hasRarityCore) {
-            int rarity = RarityCoreProxy.getNormalizedRarity(itemStack);
+            int rarity = RarityCoreProxy.getRarity(itemStack);
             this.rarityColor = RarityCoreProxy.getRarityArgbColor(rarity);
-            String rarityName = RarityCoreProxy.getLocalizedRarityTooltip(itemStack.getItem());
+            String rarityName = RarityCoreProxy.getLocalizedRarityTooltip(itemStack);
             this.rarityText = Component.literal(rarityName);
             this.titleBarHeight = 24;
         } else {

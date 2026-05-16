@@ -56,7 +56,7 @@ public final class TooltipRenderPolicy {
             return false;
         }
         // 检查实际稀有度，不是默认稀有度
-        int rarity = RarityCoreProxy.getNormalizedRarity(stack);
+        int rarity = RarityCoreProxy.getRarity(stack);
         return rarity > 0;
     }
 
@@ -106,7 +106,7 @@ public final class TooltipRenderPolicy {
         if (!RarityCoreProxy.isLoaded()) {
             return RarityCoreProxy.FALLBACK_BORDER_COLOR;
         }
-        int rarity = RarityCoreProxy.getNormalizedRarity(stack);
+        int rarity = RarityCoreProxy.getRarity(stack);
         return RarityCoreProxy.getRarityArgbColor(rarity);
     }
 
@@ -118,7 +118,7 @@ public final class TooltipRenderPolicy {
         if (!hasValidItemStack(stack)) {
             return 1; // 普通稀有度
         }
-        return RarityCoreProxy.getNormalizedRarity(stack);
+        return RarityCoreProxy.getRarity(stack);
     }
 
     /**

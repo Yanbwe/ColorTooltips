@@ -25,6 +25,6 @@ side = "CLIENT"
 [[dependencies."${mod_id}"]]
 modId = "raritycore"
 mandatory = false
-versionRange = "[1201.12.5,)"
+versionRange = "[1201.13.0,)"
 ordering = "AFTER"
 side = "CLIENT"
