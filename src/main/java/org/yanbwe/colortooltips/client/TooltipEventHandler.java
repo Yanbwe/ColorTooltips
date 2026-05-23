@@ -19,7 +19,6 @@ import org.yanbwe.colortooltips.animation.TooltipAnimationSystem;
 import org.yanbwe.colortooltips.animation.TooltipLockManager;
 import org.yanbwe.colortooltips.animation.TooltipState;
 import org.yanbwe.colortooltips.animation.TooltipTarget;
-import org.yanbwe.colortooltips.compat.ApotheosisCompat;
 import org.yanbwe.colortooltips.config.ConfigManager;
 import org.yanbwe.colortooltips.config.ColorFlowAnimator;
 import org.yanbwe.colortooltips.config.DynamicColorResolver;
@@ -39,6 +38,8 @@ public class TooltipEventHandler {
     private static ClientTooltipPositioner cachedPositioner = null;
     private static boolean renderedThisFrame = false;
     private static boolean isReplayPhase = false;
+    /** 同帧内已渲染的提示框数量，用于检测多提示框场景并绕过共享动画状态 */
+    private static int tooltipsRenderedThisFrame = 0;
     private static int lastBorderColor = 0xFFFFFFFF;
     private static int lastBgColor = 0xFF000000;
 
@@ -54,12 +55,6 @@ public class TooltipEventHandler {
         }
 
         if (isVirtualItem(itemStack)) {
-            return;
-        }
-
-        // 神化模组兼容：重铸结果槽 / 回收台不干涉
-        if (ApotheosisCompat.shouldSkipTooltip(Minecraft.getInstance().screen, 
-            Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> s ? s.getSlotUnderMouse() : null)) {
             return;
         }
 
@@ -109,12 +104,6 @@ public class TooltipEventHandler {
             return;
         }
 
-        // 神化模组兼容：重铸结果槽 / 回收台不干涉颜色
-        if (ApotheosisCompat.shouldSkipTooltip(Minecraft.getInstance().screen,
-            Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> s ? s.getSlotUnderMouse() : null)) {
-            return;
-        }
-
         var itemStack = event.getItemStack();
         if (itemStack == null || itemStack.isEmpty()) {
             return;
@@ -148,6 +137,7 @@ public class TooltipEventHandler {
         cachedPositioner = null;
         renderedThisFrame = false;
         isReplayPhase = false;
+        tooltipsRenderedThisFrame = 0;
         TooltipAnimationSystem.reset();
     }
 
@@ -179,6 +169,7 @@ public class TooltipEventHandler {
             isReplayPhase = false;
         }
         renderedThisFrame = false;
+        tooltipsRenderedThisFrame = 0;
     }
 
     public static boolean renderCustomTooltip(GuiGraphics graphics, Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, ItemStack stack) {
@@ -240,6 +231,17 @@ public class TooltipEventHandler {
 
         if (liveRender && !isReplayPhase) {
             renderedThisFrame = true;
+            tooltipsRenderedThisFrame++;
+
+            // 仅首个提示框更新共享生命周期状态，避免后续提示框污染
+            if (tooltipsRenderedThisFrame == 1) {
+                if (hasValidItem) {
+                    TooltipAnimationSystem.onLiveItemObserved(stack);
+                } else {
+                    TooltipAnimationSystem.onTextOnlyTooltipObserved();
+                }
+            }
+
             // 处理空物品堆
             cachedStack = (stack != null && !stack.isEmpty()) ? stack.copy() : ItemStack.EMPTY;
             cachedComponents = new ArrayList<>(components);
@@ -276,13 +278,6 @@ public class TooltipEventHandler {
 
         // 纯文本tooltip使用空物品堆
         ItemStack animationStack = hasValidItem ? stack : ItemStack.EMPTY;
-        if (liveRender && !isReplayPhase) {
-            if (hasValidItem) {
-                TooltipAnimationSystem.onLiveItemObserved(stack);
-            } else {
-                TooltipAnimationSystem.onTextOnlyTooltipObserved();
-            }
-        }
 
         TooltipTarget target = new TooltipTarget(
                 targetWidth,
@@ -293,7 +288,13 @@ public class TooltipEventHandler {
                 targetRawBorderColor,
                 TooltipAnimationSystem.computeTargetAlpha()
         );
-        TooltipState state = TooltipAnimationSystem.update(animationStack, target);
+        // 同帧多提示框时绕过共享 ANIMATOR 的缓动插值，直接构建即时状态避免鬼畜抖动
+        TooltipState state;
+        if (tooltipsRenderedThisFrame > 1) {
+            state = TooltipAnimationSystem.createInstantState(target);
+        } else {
+            state = TooltipAnimationSystem.update(animationStack, target);
+        }
 
         int width = state.getWidthInt();
         int height = state.getHeightInt();

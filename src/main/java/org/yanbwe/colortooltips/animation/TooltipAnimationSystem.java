@@ -277,6 +277,36 @@ public class TooltipAnimationSystem {
         return TooltipLockManager.getLockedAnchorY();
     }
 
+    /**
+     * 从目标直接创建即时 TooltipState，绕过共享 ANIMATOR 的缓动插值。
+     * <p>
+     * 用于同帧多提示框场景 —— 多个提示框争抢同一个 ANIMATOR 会导致位置/大小
+     * 在帧间反复跳变（鬼畜抖动）。此方法以目标值直接构造状态，不做任何平滑处理，
+     * 从而完全隔离不同提示框的渲染。
+     * <p>
+     * 仍会应用进行中的颜色动画（{@link #applyColorAnimation(int)}），
+     * 确保跨物品颜色过渡在多提示框场景下也能正确显示。
+     *
+     * @param target 提示框目标参数（位置、大小、颜色、透明度）
+     * @return 即时定位的 TooltipState（位置和大小 = 目标值，alpha = 目标值）
+     */
+    public static TooltipState createInstantState(TooltipTarget target) {
+        TooltipState state = new TooltipState();
+        state.width = target.width;
+        state.height = target.height;
+        state.anchorX = target.anchorX;
+        state.anchorY = target.anchorY;
+        state.renderOffsetX = 0;
+        state.renderOffsetY = 0;
+        state.anchor = target.anchor;
+        state.alpha = target.alpha;
+        state.transitionProgress = 1.0f;
+        state.colorArgb = target.colorArgb;
+        // 应用进行中的颜色动画（跨物品颜色过渡）
+        state.colorArgb = applyColorAnimation(state.colorArgb);
+        return state;
+    }
+
     // ══════════════════════════════════════════════════════════
     // 样式驱动的动画参数更新
     // ══════════════════════════════════════════════════════════
