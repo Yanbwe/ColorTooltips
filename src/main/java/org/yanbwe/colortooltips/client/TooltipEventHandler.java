@@ -168,6 +168,10 @@ public class TooltipEventHandler {
             );
             isReplayPhase = false;
         }
+        // 多提示框帧污染了共享 ANIMATOR 位置状态，下帧需强制初始化避免重影
+        if (tooltipsRenderedThisFrame > 1) {
+            TooltipAnimationSystem.setNeedsAnimatorReset(true);
+        }
         renderedThisFrame = false;
         tooltipsRenderedThisFrame = 0;
     }

@@ -53,6 +53,9 @@ public class TooltipAnimationSystem {
     private static int crossfadeNewBorderColor;
     private static int crossfadeNewBgColor;
 
+    /** 多提示框帧后标记：下帧首个 update() 需强制初始化 ANIMATOR 位置，避免从错误起点缓动产生重影 */
+    private static boolean needsAnimatorReset = false;
+
     static {
         ANIMATOR.reset();
         lastState = ANIMATOR.tickAndGet();
@@ -91,7 +94,12 @@ public class TooltipAnimationSystem {
             lastTargetColorArgb = newTargetColor;
         }
 
-        ANIMATOR.setTarget(target);
+        if (needsAnimatorReset) {
+            ANIMATOR.forceInit(target);
+            needsAnimatorReset = false;
+        } else {
+            ANIMATOR.setTarget(target);
+        }
         processEvents();
         lastState = ANIMATOR.tickAndGet();
 
@@ -275,6 +283,18 @@ public class TooltipAnimationSystem {
 
     public static float getLockedAnchorY() {
         return TooltipLockManager.getLockedAnchorY();
+    }
+
+    /**
+     * 标记共享 ANIMATOR 位置状态需要在下帧首个 update() 中强制初始化。
+     * <p>
+     * 多提示框帧中，首个提示框调用 update() 会污染 ANIMATOR 的位置状态；
+     * 下帧若以不同提示框为首个调用者，将从错误起点缓动产生重影。
+     * 调用此方法后，下帧首个 update() 将使用 {@link TooltipAnimator#forceInit(TooltipTarget)}
+     * 直接跳变到目标位置，同时保留 alpha/transition 动画状态。
+     */
+    public static void setNeedsAnimatorReset(boolean needsReset) {
+        needsAnimatorReset = needsReset;
     }
 
     /**

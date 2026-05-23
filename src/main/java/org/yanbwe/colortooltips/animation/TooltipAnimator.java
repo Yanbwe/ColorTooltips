@@ -97,6 +97,32 @@ public class TooltipAnimator {
         state.alpha = 0.0f;
     }
 
+    /**
+     * 强制将 animator 状态初始化为目标值（仅位置/大小/颜色），不重置 alpha 和 transitionProgress。
+     * <p>
+     * 用于多提示框帧后恢复 —— 共享 ANIMATOR 在多提示框帧中被污染，
+     * 下帧若不重置位置起点，将从错误位置缓动到新目标产生"重影"。
+     * <p>
+     * 与 {@link #setTarget(TooltipTarget)} 中的首次初始化不同，
+     * 此方法保持 alpha 和 transitionProgress 不变，避免闪烁。
+     *
+     * @param target 提示框目标参数
+     */
+    public void forceInit(TooltipTarget target) {
+        this.target = target;
+        initialized = true;
+        lastTickTimeMs = 0L;
+        state.width = target.width;
+        state.height = target.height;
+        state.anchorX = target.anchorX;
+        state.anchorY = target.anchorY;
+        state.renderOffsetX = 0.0f;
+        state.renderOffsetY = 0.0f;
+        state.anchor = target.anchor;
+        state.colorArgb = target.colorArgb;
+        // 不碰 alpha 和 transitionProgress，保留现有动画状态
+    }
+
     public int getTargetWidthInt() {
         return target != null ? Math.max(1, Math.round(target.width)) : Math.max(1, Math.round(state.width));
     }
