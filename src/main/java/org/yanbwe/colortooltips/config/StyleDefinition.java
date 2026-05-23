@@ -39,6 +39,9 @@ public class StyleDefinition {
     @SerializedName("animation")
     private AnimationConfig animation;
 
+    /** 复用的 Gson 实例（无状态，线程安全） */
+    private static final Gson GSON = new GsonBuilder().setLenient().create();
+
     // ==================== Getters ====================
 
     public BorderConfig getBorder() { return border; }
@@ -84,10 +87,7 @@ public class StyleDefinition {
             return createDefault();
         }
         try {
-            Gson gson = new GsonBuilder()
-                    .setLenient()
-                    .create();
-            StyleDefinition parsed = gson.fromJson(json, StyleDefinition.class);
+            StyleDefinition parsed = GSON.fromJson(json, StyleDefinition.class);
             return mergeWithDefaults(parsed);
         } catch (JsonSyntaxException e) {
             // JSON 解析失败，返回降级默认值

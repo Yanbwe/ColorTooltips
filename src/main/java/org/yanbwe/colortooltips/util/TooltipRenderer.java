@@ -25,9 +25,10 @@ public class TooltipRenderer {
     private static final float DEFAULT_TAIL_LENGTH = 1.6f;
     private static final float DEFAULT_ALPHA_EXPONENT = 0.5f;
 
-    // HSV 偏移缓存，key 改为基于样式+物品的稳定 String 标识
+    // HSV 偏移缓存（Integer key 避免 String 拼接开销）
     // 用于旧版兼容方法生成随机色相/饱和度/明度偏移
-    private static final Map<String, float[][]> hsvOffsetCache = new HashMap<>();
+    private static final Map<Integer, float[][]> borderHsvCache = new HashMap<>();
+    private static final Map<Integer, float[][]> titleBarHsvCache = new HashMap<>();
 
     // ══════════════════════════════════════════════════════════
     // 颜色转换工具方法
@@ -293,10 +294,9 @@ public class TooltipRenderer {
         if (width <= 0 || height <= 0) return;
 
         int targetColor = variationSeedColor;
-        String cacheKey = "hsv_" + targetColor;
-        float[][] offsets = hsvOffsetCache.computeIfAbsent(cacheKey, k -> {
+        float[][] offsets = borderHsvCache.computeIfAbsent(targetColor, key -> {
             float[][] genOffsets = new float[4][3];
-            Random rand = new Random(targetColor);
+            Random rand = new Random(key);
             double hueVariation = DEFAULT_HUE_VARIATION;
             double valueVariation = DEFAULT_VALUE_VARIATION;
             double saturationVariation = DEFAULT_SATURATION_VARIATION;
@@ -306,7 +306,7 @@ public class TooltipRenderer {
                 genOffsets[i][1] = rand.nextFloat() * (float) saturationVariation - (float) saturationVariation / 2;
                 genOffsets[i][2] = rand.nextFloat() * (float) valueVariation - (float) valueVariation / 2;
             }
-            Random shuffleRand = new Random(targetColor);
+            Random shuffleRand = new Random(key);
             for (int i = 0; i < 4; i++) {
                 int swapIdx = shuffleRand.nextInt(4);
                 float[] temp = genOffsets[i];
@@ -712,10 +712,9 @@ public class TooltipRenderer {
     public static void drawGradientTitleBar(GuiGraphics graphics, int x, int y, int width, int height,
             int rarityColor, int variationSeedColor, float fadeAlpha, int targetWidth, int targetHeight, int titleBarHeight) {
         int targetColor = variationSeedColor;
-        String cacheKey = "titlebar_hsv_" + targetColor;
-        float[][] offsets = hsvOffsetCache.computeIfAbsent(cacheKey, k -> {
+        float[][] offsets = titleBarHsvCache.computeIfAbsent(targetColor + 1, key -> {
             float[][] genOffsets = new float[4][3];
-            Random rand = new Random(targetColor + 1);
+            Random rand = new Random(key);
             double hueVariation = DEFAULT_HUE_VARIATION;
             double valueVariation = DEFAULT_VALUE_VARIATION;
             double saturationVariation = DEFAULT_SATURATION_VARIATION;
@@ -725,7 +724,7 @@ public class TooltipRenderer {
                 genOffsets[i][1] = rand.nextFloat() * (float) saturationVariation - (float) saturationVariation / 2;
                 genOffsets[i][2] = rand.nextFloat() * (float) valueVariation - (float) valueVariation / 2;
             }
-            Random shuffleRand = new Random(targetColor + 1);
+            Random shuffleRand = new Random(key);
             for (int i = 0; i < 4; i++) {
                 int swapIdx = shuffleRand.nextInt(4);
                 float[] temp = genOffsets[i];
@@ -810,8 +809,115 @@ public class TooltipRenderer {
     }
 
     // ══════════════════════════════════════════════════════════
-    // drawEntryAnimation — 新版（接收 SwitchEffectConfig）
+    // drawEntryAnimation — 公共实现
     // ══════════════════════════════════════════════════════════
+
+    /**
+     * 计算入场动画轨迹点 1（顶边→右边路径）。
+     */
+    private static float[] getEntryPoint1Pos(float p, int x, int y,
+            int targetWidth, int targetHeight, boolean isLeft, float totalDistTopRight) {
+        float d = p * totalDistTopRight;
+        if (isLeft) {
+            if (d <= targetWidth) return new float[]{x + targetWidth - d, y};
+            else return new float[]{x, y + (d - targetWidth)};
+        } else {
+            if (d <= targetWidth) return new float[]{x + d, y};
+            else return new float[]{x + targetWidth, y + (d - targetWidth)};
+        }
+    }
+
+    /**
+     * 计算入场动画轨迹点 2（左边→底边路径）。
+     */
+    private static float[] getEntryPoint2Pos(float p, int x, int y,
+            int targetWidth, int targetHeight, boolean isLeft, float totalDistLeftBottom) {
+        float d = p * totalDistLeftBottom;
+        if (isLeft) {
+            if (d <= targetHeight) return new float[]{x + targetWidth, y + d};
+            else return new float[]{x + targetWidth - (d - targetHeight), y + targetHeight};
+        } else {
+            if (d <= targetHeight) return new float[]{x, y + d};
+            else return new float[]{x + (d - targetHeight), y + targetHeight};
+        }
+    }
+
+    /**
+     * 入场动画内部渲染实现 — 消除新旧 API 的重复代码。
+     * <p>
+     * 由三个公开的 {@code drawEntryAnimation} 重载共享，
+     * 仅 tailSegments / tailLengthFactor / alphaExponent 等参数来源不同。
+     */
+    private static void drawEntryAnimationImpl(GuiGraphics graphics, int x, int y, int width, int height,
+            float progress, float fadeAlpha, boolean isLeft,
+            int tailSegments, float tailLengthFactor, float alphaExponent,
+            float fr, float fg, float fb) {
+
+        if (progress >= 1.0f || progress < 0) return;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+
+        var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
+        var matrix = graphics.pose().last().pose();
+
+        int targetWidth = width;
+        int targetHeight = height;
+        float totalDistTopRight = targetWidth + targetHeight;
+        float totalDistLeftBottom = targetHeight + targetWidth;
+
+        java.util.function.BiConsumer<java.util.function.Function<Float, float[]>, Float> drawTrail = (posFunc, currentProgress) -> {
+            for (int i = 0; i < tailSegments; i++) {
+                float segmentProgress = currentProgress - (currentProgress * tailLengthFactor * (i / (float) tailSegments));
+                if (segmentProgress < 0) segmentProgress = 0;
+
+                float nextProgress = currentProgress - (currentProgress * tailLengthFactor * ((i + 1) / (float) tailSegments));
+                if (nextProgress < 0) nextProgress = 0;
+
+                float[] pos1 = posFunc.apply(segmentProgress);
+                float[] pos2 = posFunc.apply(nextProgress);
+
+                float alpha1 = (float) Math.pow(1.0f - (i / (float) tailSegments), alphaExponent);
+                float alpha2 = (float) Math.pow(1.0f - ((i + 1) / (float) tailSegments), alphaExponent);
+
+                float globalFade = 1.0f - (float) Math.pow(currentProgress, 2);
+                alpha1 *= globalFade * fadeAlpha;
+                alpha2 *= globalFade * fadeAlpha;
+
+                float dx = pos2[0] - pos1[0];
+                float dy = pos2[1] - pos1[1];
+                float len = (float) Math.sqrt(dx * dx + dy * dy);
+
+                if (len > 0.001f) {
+                    float nx = -dy / len;
+                    float ny = dx / len;
+                    float thickness = 1.0f;
+
+                    consumer.vertex(matrix, pos2[0] + nx * thickness, pos2[1] + ny * thickness, 0).color(fr, fg, fb, alpha2).endVertex();
+                    consumer.vertex(matrix, pos2[0] - nx * thickness, pos2[1] - ny * thickness, 0).color(fr, fg, fb, alpha2).endVertex();
+                    consumer.vertex(matrix, pos1[0] - nx * thickness, pos1[1] - ny * thickness, 0).color(fr, fg, fb, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] + nx * thickness, pos1[1] + ny * thickness, 0).color(fr, fg, fb, alpha1).endVertex();
+                } else if (i == 0) {
+                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] - 1, 0).color(fr, fg, fb, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] + 1, 0).color(fr, fg, fb, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] + 1, 0).color(fr, fg, fb, alpha1).endVertex();
+                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] - 1, 0).color(fr, fg, fb, alpha1).endVertex();
+                }
+            }
+        };
+
+        java.util.function.Function<Float, float[]> getPoint1Pos = (p) ->
+                getEntryPoint1Pos(p, x, y, targetWidth, targetHeight, isLeft, totalDistTopRight);
+        java.util.function.Function<Float, float[]> getPoint2Pos = (p) ->
+                getEntryPoint2Pos(p, x, y, targetWidth, targetHeight, isLeft, totalDistLeftBottom);
+
+        drawTrail.accept(getPoint1Pos, progress);
+        drawTrail.accept(getPoint2Pos, progress);
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
+    }
 
     /**
      * 绘制物品切换入场动画（新版样式系统）。
@@ -824,114 +930,18 @@ public class TooltipRenderer {
     public static void drawEntryAnimation(GuiGraphics graphics, int x, int y, int width, int height,
             float progress, float fadeAlpha, boolean isLeft,
             StyleDefinition.AnimationConfig.SwitchEffectConfig switchEffect, int flashColor) {
-        if (progress >= 1.0f || progress < 0) return;
-
         float fr = ((flashColor >> 16) & 0xFF) / 255.0f;
         float fg = ((flashColor >> 8) & 0xFF) / 255.0f;
         float fb = (flashColor & 0xFF) / 255.0f;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-
-        var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
-        var matrix = graphics.pose().last().pose();
-
-        int tailSegments = switchEffect.getSegmentation();
-        float tailLengthFactor = (float) switchEffect.getLength();
-        // 使用固定 alpha 衰减指数 0.5（匹配旧版默认）
-        float alphaExponent = 0.5f;
-
-        int targetWidth = width;
-        int targetHeight = height;
-        float totalDistTopRight = targetWidth + targetHeight;
-        float totalDistLeftBottom = targetHeight + targetWidth;
-
-        java.util.function.Function<Float, float[]> getPoint1Pos = (p) -> {
-            float d = p * totalDistTopRight;
-            if (isLeft) {
-                if (d <= targetWidth) {
-                    return new float[]{x + targetWidth - d, y};
-                } else {
-                    return new float[]{x, y + (d - targetWidth)};
-                }
-            } else {
-                if (d <= targetWidth) {
-                    return new float[]{x + d, y};
-                } else {
-                    return new float[]{x + targetWidth, y + (d - targetWidth)};
-                }
-            }
-        };
-
-        java.util.function.Function<Float, float[]> getPoint2Pos = (p) -> {
-            float d = p * totalDistLeftBottom;
-            if (isLeft) {
-                if (d <= targetHeight) {
-                    return new float[]{x + targetWidth, y + d};
-                } else {
-                    return new float[]{x + targetWidth - (d - targetHeight), y + targetHeight};
-                }
-            } else {
-                if (d <= targetHeight) {
-                    return new float[]{x, y + d};
-                } else {
-                    return new float[]{x + (d - targetHeight), y + targetHeight};
-                }
-            }
-        };
-
-        java.util.function.BiConsumer<java.util.function.Function<Float, float[]>, Float> drawTrail = (posFunc, currentProgress) -> {
-            for (int i = 0; i < tailSegments; i++) {
-                float segmentProgress = currentProgress - (currentProgress * tailLengthFactor * (i / (float) tailSegments));
-                if (segmentProgress < 0) segmentProgress = 0;
-
-                float nextProgress = currentProgress - (currentProgress * tailLengthFactor * ((i + 1) / (float) tailSegments));
-                if (nextProgress < 0) nextProgress = 0;
-
-                float[] pos1 = posFunc.apply(segmentProgress);
-                float[] pos2 = posFunc.apply(nextProgress);
-
-                float alpha1 = (float) Math.pow(1.0f - (i / (float) tailSegments), alphaExponent);
-                float alpha2 = (float) Math.pow(1.0f - ((i + 1) / (float) tailSegments), alphaExponent);
-
-                float globalFade = 1.0f - (float) Math.pow(currentProgress, 2);
-                alpha1 *= globalFade * fadeAlpha;
-                alpha2 *= globalFade * fadeAlpha;
-
-                float dx = pos2[0] - pos1[0];
-                float dy = pos2[1] - pos1[1];
-                float len = (float) Math.sqrt(dx * dx + dy * dy);
-                
-                if (len > 0.001f) {
-                    float nx = -dy / len;
-                    float ny = dx / len;
-                    float thickness = 1.0f;
-                    
-                    consumer.vertex(matrix, pos2[0] + nx * thickness, pos2[1] + ny * thickness, 0).color(fr, fg, fb, alpha2).endVertex();
-                    consumer.vertex(matrix, pos2[0] - nx * thickness, pos2[1] - ny * thickness, 0).color(fr, fg, fb, alpha2).endVertex();
-                    consumer.vertex(matrix, pos1[0] - nx * thickness, pos1[1] - ny * thickness, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] + nx * thickness, pos1[1] + ny * thickness, 0).color(fr, fg, fb, alpha1).endVertex();
-                } else if (i == 0) {
-                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] - 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] + 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] + 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] - 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                }
-            }
-        };
-
-        drawTrail.accept(getPoint1Pos, progress);
-        drawTrail.accept(getPoint2Pos, progress);
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        drawEntryAnimationImpl(graphics, x, y, width, height,
+                progress, fadeAlpha, isLeft,
+                switchEffect.getSegmentation(), (float) switchEffect.getLength(), 0.5f,
+                fr, fg, fb);
     }
 
     /**
      * 绘制物品切换入场动画（使用指定闪光颜色）。
-     * <p>
-     * 替代旧版硬编码白色 (1f, 1f, 1f)，flashColor 由样式系统的 switchEffect.color 解析得到。
      *
      * @param progress   动画进度 0.0~1.0
      * @param fadeAlpha  全局淡出透明度
@@ -940,107 +950,14 @@ public class TooltipRenderer {
      */
     public static void drawEntryAnimation(GuiGraphics graphics, int x, int y, int width, int height,
             float progress, float fadeAlpha, boolean isLeft, int flashColor) {
-        if (progress >= 1.0f || progress < 0) return;
-
         float fr = ((flashColor >> 16) & 0xFF) / 255.0f;
         float fg = ((flashColor >> 8) & 0xFF) / 255.0f;
         float fb = (flashColor & 0xFF) / 255.0f;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-
-        var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
-        var matrix = graphics.pose().last().pose();
-
-        int tailSegments = DEFAULT_TAIL_SEGMENTS;
-        float tailLengthFactor = DEFAULT_TAIL_LENGTH;
-        float alphaExponent = DEFAULT_ALPHA_EXPONENT;
-
-        int targetWidth = width;
-        int targetHeight = height;
-        float totalDistTopRight = targetWidth + targetHeight;
-        float totalDistLeftBottom = targetHeight + targetWidth;
-
-        java.util.function.Function<Float, float[]> getPoint1Pos = (p) -> {
-            float d = p * totalDistTopRight;
-            if (isLeft) {
-                if (d <= targetWidth) {
-                    return new float[]{x + targetWidth - d, y};
-                } else {
-                    return new float[]{x, y + (d - targetWidth)};
-                }
-            } else {
-                if (d <= targetWidth) {
-                    return new float[]{x + d, y};
-                } else {
-                    return new float[]{x + targetWidth, y + (d - targetWidth)};
-                }
-            }
-        };
-
-        java.util.function.Function<Float, float[]> getPoint2Pos = (p) -> {
-            float d = p * totalDistLeftBottom;
-            if (isLeft) {
-                if (d <= targetHeight) {
-                    return new float[]{x + targetWidth, y + d};
-                } else {
-                    return new float[]{x + targetWidth - (d - targetHeight), y + targetHeight};
-                }
-            } else {
-                if (d <= targetHeight) {
-                    return new float[]{x, y + d};
-                } else {
-                    return new float[]{x + (d - targetHeight), y + targetHeight};
-                }
-            }
-        };
-
-        java.util.function.BiConsumer<java.util.function.Function<Float, float[]>, Float> drawTrail = (posFunc, currentProgress) -> {
-            for (int i = 0; i < tailSegments; i++) {
-                float segmentProgress = currentProgress - (currentProgress * tailLengthFactor * (i / (float) tailSegments));
-                if (segmentProgress < 0) segmentProgress = 0;
-
-                float nextProgress = currentProgress - (currentProgress * tailLengthFactor * ((i + 1) / (float) tailSegments));
-                if (nextProgress < 0) nextProgress = 0;
-
-                float[] pos1 = posFunc.apply(segmentProgress);
-                float[] pos2 = posFunc.apply(nextProgress);
-
-                float alpha1 = (float) Math.pow(1.0f - (i / (float) tailSegments), alphaExponent);
-                float alpha2 = (float) Math.pow(1.0f - ((i + 1) / (float) tailSegments), alphaExponent);
-
-                float globalFade = 1.0f - (float) Math.pow(currentProgress, 2);
-                alpha1 *= globalFade * fadeAlpha;
-                alpha2 *= globalFade * fadeAlpha;
-
-                float dx = pos2[0] - pos1[0];
-                float dy = pos2[1] - pos1[1];
-                float len = (float) Math.sqrt(dx * dx + dy * dy);
-                
-                if (len > 0.001f) {
-                    float nx = -dy / len;
-                    float ny = dx / len;
-                    float thickness = 1.0f;
-                    
-                    consumer.vertex(matrix, pos2[0] + nx * thickness, pos2[1] + ny * thickness, 0).color(fr, fg, fb, alpha2).endVertex();
-                    consumer.vertex(matrix, pos2[0] - nx * thickness, pos2[1] - ny * thickness, 0).color(fr, fg, fb, alpha2).endVertex();
-                    consumer.vertex(matrix, pos1[0] - nx * thickness, pos1[1] - ny * thickness, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] + nx * thickness, pos1[1] + ny * thickness, 0).color(fr, fg, fb, alpha1).endVertex();
-                } else if (i == 0) {
-                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] - 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] + 1, pos1[1] + 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] + 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                    consumer.vertex(matrix, pos1[0] - 1, pos1[1] - 1, 0).color(fr, fg, fb, alpha1).endVertex();
-                }
-            }
-        };
-
-        drawTrail.accept(getPoint1Pos, progress);
-        drawTrail.accept(getPoint2Pos, progress);
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        drawEntryAnimationImpl(graphics, x, y, width, height,
+                progress, fadeAlpha, isLeft,
+                DEFAULT_TAIL_SEGMENTS, DEFAULT_TAIL_LENGTH, DEFAULT_ALPHA_EXPONENT,
+                fr, fg, fb);
     }
 
     /**
