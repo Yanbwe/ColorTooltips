@@ -3,13 +3,13 @@
     "common": {
       "onlyText": "Vanilla",
       "Common": "Vanilla",
-      "Uncommon": "Vanilla",
-      "Rare": "Vanilla",
-      "Epic": "Vanilla",
+      "Uncommon": "VanillaRarity",
+      "Rare": "VanillaRarity",
+      "Epic": "VanillaRarity",
       "items": {}
     },
     "rarityCore": {
-      "onlyText": "RarityCoreStyles",
+      "onlyText": "Vanilla",
       "*": "RarityCoreStyles",
       "items": {}
     }

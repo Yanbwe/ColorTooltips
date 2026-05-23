@@ -1,6 +1,7 @@
 package org.yanbwe.colortooltips.config;
 
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
@@ -117,7 +118,8 @@ public final class DynamicColorResolver {
             case "@modID":
                 return getModId(itemStack);
             default:
-                return "";
+                // 非特殊 token → 原样返回自定义文本
+                return trimmed;
         }
     }
 
@@ -135,13 +137,9 @@ public final class DynamicColorResolver {
         if (rarity == null) {
             return "";
         }
-        switch (rarity) {
-            case COMMON:   return "Common";
-            case UNCOMMON: return "Uncommon";
-            case RARE:     return "Rare";
-            case EPIC:     return "Epic";
-            default:       return rarity.name();
-        }
+        // 使用自定义本地化 key
+        String key = "tooltip.colortooltips.rarity." + rarity.name().toLowerCase();
+        return Component.translatable(key).getString();
     }
 
     // ══════════════════════════════════════════════════════════
@@ -171,13 +169,11 @@ public final class DynamicColorResolver {
         if (rarity == null) {
             return DEFAULT_COLOR;
         }
-        switch (rarity) {
-            case COMMON:   return VANILLA_COMMON_COLOR;
-            case UNCOMMON: return VANILLA_UNCOMMON_COLOR;
-            case RARE:     return VANILLA_RARE_COLOR;
-            case EPIC:     return VANILLA_EPIC_COLOR;
-            default:       return DEFAULT_COLOR;
-        }
+        if (rarity == Rarity.COMMON)   return VANILLA_COMMON_COLOR;
+        if (rarity == Rarity.UNCOMMON) return VANILLA_UNCOMMON_COLOR;
+        if (rarity == Rarity.RARE)     return VANILLA_RARE_COLOR;
+        if (rarity == Rarity.EPIC)     return VANILLA_EPIC_COLOR;
+        return DEFAULT_COLOR;
     }
 
     /**

@@ -279,6 +279,7 @@ public final class ConfigManager {
         ensureDefaultStyleFile("Vanilla.json");
         ensureDefaultStyleFile("RarityCoreStyles.json");
         ensureDefaultStyleFile("RGB.json");
+        ensureDefaultStyleFile("VanillaRarity.json");
     }
 
     private void ensureDefaultStyleFile(String fileName) {
@@ -456,13 +457,13 @@ public final class ConfigManager {
                "    \"common\": {\n" +
                "      \"onlyText\": \"Vanilla\",\n" +
                "      \"Common\": \"Vanilla\",\n" +
-               "      \"Uncommon\": \"Vanilla\",\n" +
-               "      \"Rare\": \"Vanilla\",\n" +
-               "      \"Epic\": \"Vanilla\",\n" +
+               "      \"Uncommon\": \"VanillaRarity\",\n" +
+               "      \"Rare\": \"VanillaRarity\",\n" +
+               "      \"Epic\": \"VanillaRarity\",\n" +
                "      \"items\": {}\n" +
                "    },\n" +
                "    \"rarityCore\": {\n" +
-               "      \"onlyText\": \"RarityCoreStyles\",\n" +
+               "      \"onlyText\": \"Vanilla\",\n" +
                "      \"*\": \"RarityCoreStyles\",\n" +
                "      \"items\": {}\n" +
                "    }\n" +
@@ -474,7 +475,7 @@ public final class ConfigManager {
                "  \"onlyTextTooltips\": {\n" +
                "    \"enabled\": true\n" +
                "  },\n" +
-                "  \"smoothColor\": true\n" +
+               "  \"smoothColor\": true\n" +
                "}\n";
     }
 
@@ -484,18 +485,17 @@ public final class ConfigManager {
         block.onlyText = "Vanilla";
         block.fallback = "Vanilla";
         block.rarity.put("*", "Vanilla");
-        // 也注册各个稀有度名称
         block.rarity.put("Common", "Vanilla");
-        block.rarity.put("Uncommon", "Vanilla");
-        block.rarity.put("Rare", "Vanilla");
-        block.rarity.put("Epic", "Vanilla");
+        block.rarity.put("Uncommon", "VanillaRarity");
+        block.rarity.put("Rare", "VanillaRarity");
+        block.rarity.put("Epic", "VanillaRarity");
         return block;
     }
 
     /** 创建默认 rarityCore 选择器块 */
     private StyleSelector.SelectorBlock createDefaultRarityCoreBlock() {
         StyleSelector.SelectorBlock block = new StyleSelector.SelectorBlock();
-        block.onlyText = "RarityCoreStyles";
+        block.onlyText = "Vanilla";
         block.fallback = "RarityCoreStyles";
         block.rarity.put("*", "RarityCoreStyles");
         return block;

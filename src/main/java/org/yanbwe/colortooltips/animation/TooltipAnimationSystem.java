@@ -293,26 +293,20 @@ public class TooltipAnimationSystem {
      * @param stack 当前物品栈，用于解析动态颜色标记（如 switchEffect.color 中的 @rarityCore）
      */
     public static void applyStyle(StyleDefinition style, ItemStack stack) {
-        // 纯文本模式或空物品栈 → 降级默认值
-        if (stack == null || stack.isEmpty()) {
-            applyAnimationDefaults();
-            return;
-        }
-
         if (style == null || style.getAnimation() == null) {
             applyAnimationDefaults();
             return;
         }
 
+        boolean hasValidStack = stack != null && !stack.isEmpty();
         StyleDefinition.AnimationConfig anim = style.getAnimation();
 
-        // 淡出参数
+        // 淡出参数（不依赖物品栈）
         StyleDefinition.AnimationConfig.FadeOutConfig fadeOut = anim.getFadeOut();
         if (fadeOut != null) {
             fadeOutEnabled = fadeOut.isEnabled();
             fadeOutDelay = fadeOut.getDelay();
             fadeOutDurationMs = fadeOut.getDuration();
-            // 将 duration (ms) 转换为 alpha 过渡速度：5 个时间常量 ≈ 99.3% 完成
             float alphaSpd = fadeOutDurationMs > 0 ? 5000.0f / fadeOutDurationMs : 18.0f;
             ANIMATOR.setAlphaSpeed(alphaSpd);
         } else {
@@ -322,7 +316,7 @@ public class TooltipAnimationSystem {
             ANIMATOR.setAlphaSpeed(18.0f);
         }
 
-        // 淡入参数
+        // 淡入参数（不依赖物品栈）
         StyleDefinition.AnimationConfig.FadeInConfig fadeIn = anim.getFadeIn();
         if (fadeIn != null) {
             fadeInEnabled = fadeIn.isEnabled();
@@ -332,7 +326,23 @@ public class TooltipAnimationSystem {
             fadeInDuration = 100;
         }
 
-        // 切换特效参数
+        // 平滑移动/缩放参数（不依赖物品栈）
+        StyleDefinition.AnimationConfig.SmoothMovementConfig smoothMove = anim.getSmoothMovement();
+        if (smoothMove != null) {
+            ANIMATOR.setSmoothMovement(smoothMove.isRealTimeEnabled(), (float) smoothMove.getSpeed());
+        } else {
+            ANIMATOR.setSmoothMovement(true, 1.0f);
+        }
+        StyleDefinition.AnimationConfig.SmoothScalingConfig smoothScale = anim.getSmoothScaling();
+        if (smoothScale != null) {
+            ANIMATOR.setSmoothScaling(smoothScale.isEnabled(), (float) smoothScale.getSpeed());
+        } else {
+            ANIMATOR.setSmoothScaling(true, 1.0f);
+        }
+
+        if (!hasValidStack) return;
+
+        // 以下参数依赖有效物品栈
         StyleDefinition.AnimationConfig.SwitchEffectConfig switchEffect = anim.getSwitchEffect();
         if (switchEffect != null) {
             switchEffectEnabled = switchEffect.isEnabled();
@@ -370,22 +380,6 @@ public class TooltipAnimationSystem {
         }
         // 默认使用 switch 的缩放值（processEvents 中会根据事件类型覆盖）
         itemScaleMin = itemScaleMinSwitch;
-
-        // 平滑移动参数 → 控制 ANIMATOR 的物理引擎
-        StyleDefinition.AnimationConfig.SmoothMovementConfig smoothMov = anim.getSmoothMovement();
-        if (smoothMov != null) {
-            ANIMATOR.setSmoothMovement(smoothMov.isRealTimeEnabled(), (float) smoothMov.getSpeed());
-        } else {
-            ANIMATOR.setSmoothMovement(true, 1.0f);
-        }
-
-        // 平滑缩放参数 → 控制 ANIMATOR 的物理引擎
-        StyleDefinition.AnimationConfig.SmoothScalingConfig smoothScale = anim.getSmoothScaling();
-        if (smoothScale != null) {
-            ANIMATOR.setSmoothScaling(smoothScale.isEnabled(), (float) smoothScale.getSpeed());
-        } else {
-            ANIMATOR.setSmoothScaling(true, 1.0f);
-        }
     }
 
     /**

@@ -20,9 +20,8 @@ import org.yanbwe.colortooltips.animation.TooltipLockManager;
 import org.yanbwe.colortooltips.animation.TooltipState;
 import org.yanbwe.colortooltips.animation.TooltipTarget;
 import org.yanbwe.colortooltips.compat.ApotheosisCompat;
-import org.yanbwe.colortooltips.compat.RarityCoreProxy;
-import org.yanbwe.colortooltips.config.ColorFlowAnimator;
 import org.yanbwe.colortooltips.config.ConfigManager;
+import org.yanbwe.colortooltips.config.ColorFlowAnimator;
 import org.yanbwe.colortooltips.config.DynamicColorResolver;
 import org.yanbwe.colortooltips.config.StyleDefinition;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
@@ -64,9 +63,14 @@ public class TooltipEventHandler {
             return;
         }
 
-        // 从当前样式配置判断标题栏启用状态，未启用或无 RarityCore 时不替换物品名称，保留原版
+        // 仅在真正需要改变布局时才替换原版物品名（物品模型/双行）
+        // 变色仅在 header 已创建时生效，不单独触发替换
         StyleDefinition style = ConfigManager.getInstance().getStyleForStack(itemStack, false);
-        if (!style.getTitleBar().isEnabled() || !RarityCoreProxy.isLoaded()) {
+        boolean hasHeaderContent = style.getItemModel().isEnabled()
+                || style.getTitleBar().isTwoHeight();
+        if (!hasHeaderContent) {
+            // 即使不替换物品名，也要检查是否需要添加额外提示文本
+            addExtraTooltipLine(event, itemStack, style);
             return;
         }
 
@@ -81,6 +85,22 @@ public class TooltipEventHandler {
         ColorHeaderComponent header = new ColorHeaderComponent(itemStack);
         header.setStyleDefinition(style, false);
         tooltipElements.add(0, Either.right(net.minecraft.world.inventory.tooltip.TooltipComponent.class.cast(header)));
+
+        // 额外提示文本：大模型时内嵌渲染，否则作为原生文本行插入
+        if (!header.isRenderingExtra()) {
+            addExtraTooltipLine(event, itemStack, style);
+        }
+    }
+
+    private static void addExtraTooltipLine(RenderTooltipEvent.GatherComponents event, ItemStack itemStack, StyleDefinition style) {
+        if (!style.getExtraToolTip().isEnabled()) return;
+        String content = DynamicColorResolver.resolveDynamicContent(style.getExtraToolTip().getContent(), itemStack);
+        if (content == null || content.isEmpty()) return;
+        int color = DynamicColorResolver.resolve(style.getExtraToolTip().getContentColor(), itemStack);
+        net.minecraft.network.chat.Component text = net.minecraft.network.chat.Component.literal(content)
+                .withStyle(net.minecraft.network.chat.Style.EMPTY
+                        .withColor(net.minecraft.network.chat.TextColor.fromRgb(color & 0xFFFFFF)));
+        event.getTooltipElements().add(1, Either.left(text));
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)
@@ -234,7 +254,7 @@ public class TooltipEventHandler {
             contentHeight += component.getHeight();
         }
 
-        // 标题栏只在有物品时显示（components > 1 表示有ColorHeaderComponent）
+        // 标题栏只在有实际额外内容时增加间距
         boolean hasExtraContent = hasValidItem && components.size() > 1;
         int titleBarExtraHeight = hasExtraContent ? 1 : 0;
         int heightAdjust = hasExtraContent ? 0 : -2;
@@ -364,7 +384,7 @@ public class TooltipEventHandler {
 
         // 标题栏：从 titleBar.enabled 判断，纯文本提示框(无有效物品)时强制禁用（crossfade 期间也渲染新标题栏）
         if (hasValidItem && style.getTitleBar().isEnabled() && titleBarFillColors.length > 0) {
-            int titleBarH = style.getTitleBar().isTwoHeight() ? 24 : 12;
+            int titleBarH = style.getTitleBar().isTwoHeight() ? 24 : 11;
             float titleAlpha = crossfading ? fadeAlpha * crossfadeProgress : fadeAlpha;
             graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, titleBarFillColors, titleAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), titleBarH, style.getTitleBar(), flowFraction));
         }

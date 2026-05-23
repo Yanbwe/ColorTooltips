@@ -37,12 +37,16 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
 
     /** 文本与物品模型之间的水平间距 */
     private static final int SPACING = 4;
-    /** 小物品模型水平偏移量：16 (模型) + 4 (间距) = 20 */
-    private static final int ITEM_OFFSET_SMALL = 20;
-    /** 大物品模型水平偏移量：32 (模型) + 4 (间距) = 36 */
-    private static final int ITEM_OFFSET_LARGE = 36;
+    /** 小物品模型宽度：10px */
+    private static final int ITEM_SIZE_SMALL = 10;
+    /** 大物品模型宽度：20px */
+    private static final int ITEM_SIZE_LARGE = 20;
+    /** 小物品模型水平偏移量：10 + 4 = 14 */
+    private static final int ITEM_OFFSET_SMALL = ITEM_SIZE_SMALL + SPACING;
+    /** 大物品模型水平偏移量：20 + 4 = 24 */
+    private static final int ITEM_OFFSET_LARGE = ITEM_SIZE_LARGE + SPACING;
     /** 单行文本标题栏高度 */
-    private static final int SINGLE_LINE_BAR_HEIGHT = 12;
+    private static final int SINGLE_LINE_BAR_HEIGHT = 11;
     /** 双行文本标题栏高度 */
     private static final int DOUBLE_LINE_BAR_HEIGHT = 24;
 
@@ -55,11 +59,12 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
     private int titleBarHeight = DOUBLE_LINE_BAR_HEIGHT;
     private boolean twoHeight = true;
     private boolean bigSize = true;
-    private boolean hasExtra;
+    private int itemNameColor = -1;
+    private boolean itemModelEnabled = true;
+    /** 大模型时额外文本内嵌渲染（与物品名同样右移），否则由原生文本行处理 */
+    private boolean renderExtraInHeader;
     private String extraContent;
     private int extraContentColor = -1;
-    private int itemNameColor = -1;     // -1 = 使用默认白色
-    private boolean itemModelEnabled = true;
 
     /**
      * 构造标题栏组件。
@@ -68,7 +73,7 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
      */
     public ColorHeaderComponent(ItemStack itemStack) {
         this.itemStack = itemStack;
-        this.nameText = Component.literal(itemStack.getHoverName().getString());
+        this.nameText = itemStack.getHoverName();
     }
 
     /**
@@ -94,23 +99,25 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
             this.bigSize = false;
             this.itemOffset = ITEM_OFFSET_SMALL;
             this.titleBarHeight = SINGLE_LINE_BAR_HEIGHT;
-            this.hasExtra = false;
-            this.extraContent = null;
             this.itemNameColor = -1;
             this.itemModelEnabled = false;
+            this.renderExtraInHeader = false;
             return;
         }
 
-        // ── 标题栏 ──
+        // ── 标题栏高度：twoHeight 或 bigSize 任一开启 → 24px ──
         StyleDefinition.TitleBarConfig titleBar = style.getTitleBar();
         this.twoHeight = titleBar.isTwoHeight();
-        this.titleBarHeight = twoHeight ? DOUBLE_LINE_BAR_HEIGHT : SINGLE_LINE_BAR_HEIGHT;
 
-        // ── 物品模型：bigSize 决定偏移量和渲染尺寸 ──
+        // ── 物品模型：bigSize 决定渲染尺寸和文本偏移量 ──
         StyleDefinition.ItemModelConfig itemModel = style.getItemModel();
         this.itemModelEnabled = itemModel.isEnabled();
-        this.bigSize = itemModel.isBigSize();
-        this.itemOffset = bigSize ? ITEM_OFFSET_LARGE : ITEM_OFFSET_SMALL;
+        this.bigSize = itemModelEnabled && itemModel.isBigSize();
+
+        // bigSize=true 强制两行高度，容纳大尺寸模型
+        this.titleBarHeight = (twoHeight || bigSize) ? DOUBLE_LINE_BAR_HEIGHT : SINGLE_LINE_BAR_HEIGHT;
+        // 物品模型未启用时不右移文本
+        this.itemOffset = itemModelEnabled ? (bigSize ? ITEM_OFFSET_LARGE : ITEM_OFFSET_SMALL) : 2;
 
         // ── 物品名称变色 ──
         StyleDefinition.ItemNameConfig.ChangeColorConfig changeColor = style.getItemName().getChangeColor();
@@ -120,21 +127,19 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
             this.itemNameColor = -1;
         }
 
-        // ── 额外提示文本 ──
+        // ── 大模型或双行标题栏 + 额外提示 → 内嵌渲染；否则原生文本行 ──
         StyleDefinition.ExtraToolTipConfig extra = style.getExtraToolTip();
-        if (extra.isEnabled()) {
+        if (extra.isEnabled() && (bigSize || twoHeight)) {
             String content = DynamicColorResolver.resolveDynamicContent(extra.getContent(), itemStack);
             if (content != null && !content.isEmpty()) {
-                this.hasExtra = true;
+                this.renderExtraInHeader = true;
                 this.extraContent = content;
                 this.extraContentColor = DynamicColorResolver.resolve(extra.getContentColor(), itemStack);
             } else {
-                this.hasExtra = false;
-                this.extraContent = null;
+                this.renderExtraInHeader = false;
             }
         } else {
-            this.hasExtra = false;
-            this.extraContent = null;
+            this.renderExtraInHeader = false;
         }
     }
 
@@ -142,8 +147,8 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
     // 布局尺寸查询
     // ══════════════════════════════════════════════════════════
 
-    /** @return 标题栏高度：单行 12px / 双行 24px */
     public int getHeight() {
+        if (!itemModelEnabled && !renderExtraInHeader) return 9;
         return titleBarHeight;
     }
 
@@ -152,17 +157,24 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
         return titleBarHeight;
     }
 
+    /** @return 大模型时额外文本是否由 header 内嵌渲染 */
+    public boolean isRenderingExtra() { return renderExtraInHeader; }
+
     /**
      * 计算组件的理想宽度。
-     * 取物品名宽度与额外信息宽度的较大值，加上物品模型偏移和间距。
+     * 无物品模型、无额外文本时与原版一致（不加额外边距）。
      */
     public int getWidth(Font textRenderer) {
         int nameWidth = textRenderer.width(this.nameText);
-        if (hasExtra && extraContent != null) {
-            int extraWidth = textRenderer.width(Component.literal(extraContent));
-            return Math.max(nameWidth, extraWidth) + itemOffset + SPACING;
+        if (renderExtraInHeader) {
+            int extraWidth = textRenderer.width(net.minecraft.network.chat.Component.literal(extraContent));
+            int offset = bigSize ? (itemOffset + SPACING) : 0;
+            return Math.max(nameWidth, extraWidth) + offset;
         }
-        return nameWidth + itemOffset + SPACING;
+        if (itemModelEnabled) {
+            return nameWidth + itemOffset + SPACING;
+        }
+        return nameWidth;
     }
 
     /** @return 文本起始位置的水平偏移（取决于 bigSize） */
@@ -184,19 +196,20 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
      */
     public void drawText(Font textRenderer, int x, int y, Matrix4f matrix,
                           MultiBufferSource.BufferSource vertexConsumers) {
-        float startDrawX = (float) x + itemOffset;
-
-        if (hasExtra && extraContent != null && twoHeight) {
-            // 两行有额外信息：物品名在第一行，额外信息在第二行
-            float startDrawY = y + 1;
-            drawSingleText(textRenderer, this.nameText, startDrawX, startDrawY,
+        if (renderExtraInHeader) {
+            // 内嵌额外文本（大模型右移，纯双行不右移）
+            float startDrawX = bigSize ? (x + itemOffset - 2) : (x + 2);
+            drawSingleText(textRenderer, this.nameText, startDrawX, y + 1,
                     itemNameColor, matrix, vertexConsumers);
-            startDrawY += textRenderer.lineHeight + 2;
-            drawSingleText(textRenderer, Component.literal(extraContent), startDrawX, startDrawY,
+            drawSingleText(textRenderer, net.minecraft.network.chat.Component.literal(extraContent),
+                    startDrawX, y + 1 + textRenderer.lineHeight + 2,
                     extraContentColor, matrix, vertexConsumers);
+        } else if (!itemModelEnabled) {
+            drawSingleText(textRenderer, this.nameText, x + 2, y + 1,
+                    itemNameColor, matrix, vertexConsumers);
         } else {
-            // 单行或两行无额外信息：物品名垂直居中
-            float startDrawY = y + (getHeight() - textRenderer.lineHeight) / 2.0f;
+            float startDrawX = (float) x + itemOffset - 2;
+            float startDrawY = y + (titleBarHeight - textRenderer.lineHeight) / 2.0f - 1;
             drawSingleText(textRenderer, this.nameText, startDrawX, startDrawY,
                     itemNameColor, matrix, vertexConsumers);
         }
@@ -207,10 +220,11 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
      * color = -1 表示使用默认白色；否则确保 alpha 通道后使用自定义颜色。
      */
     private void drawSingleText(Font textRenderer, Component text, float x, float y,
-                                 int color, Matrix4f matrix,
-                                 MultiBufferSource.BufferSource vertexConsumers) {
+                                  int color, Matrix4f matrix,
+                                  MultiBufferSource.BufferSource vertexConsumers) {
         int drawColor = (color == -1) ? -1 : (color | 0xFF000000);
-        textRenderer.drawInBatch(text.getVisualOrderText(), x, y, drawColor, true,
+        // 使用 Component 重载以保留斜体等样式
+        textRenderer.drawInBatch(text, x, y, drawColor, true,
                 matrix, vertexConsumers, Font.DisplayMode.NORMAL, 0, 0xF000F0);
     }
 
@@ -231,12 +245,12 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
         float scale = TooltipAnimationSystem.getItemScale();
         float fadeAlpha = TooltipAnimationSystem.getAlpha();
 
-        int itemSize = bigSize ? 32 : 16;
-        int startDrawX = x + 2;
-        int startDrawY = y + (titleBarHeight - itemSize) / 2;
+        int itemSize = bigSize ? ITEM_SIZE_LARGE : ITEM_SIZE_SMALL;
+        int startDrawX = x ;
+        int startDrawY = y + ((titleBarHeight - itemSize) / 2)-1;
 
-        float centerX = startDrawX + itemSize / 2.0f;
-        float centerY = startDrawY + itemSize / 2.0f;
+        float centerX = startDrawX + itemSize / 2f;
+        float centerY = startDrawY + itemSize / 2f;
 
         context.pose().pushPose();
         context.pose().translate(centerX, centerY, 0);

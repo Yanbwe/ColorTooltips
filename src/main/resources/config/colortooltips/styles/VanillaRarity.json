@@ -4,10 +4,10 @@
     "colorFlowSpeed": 1,
     "colorFlowDirection": "Clockwise",
     "fillColor": [
-      { "color": "@rarityCore", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } },
-      { "color": "@rarityCore", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
-      { "color": "@rarityCore", "colorModifier": { "brightness": -0.3, "saturation": 0 } },
-      { "color": "@rarityCore", "colorModifier": { "brightness": 0.0, "saturation": 0 } }
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0 } }
     ]
   },
   "backGround": {
@@ -15,8 +15,8 @@
     "colorFlowSpeed": 0.25,
     "colorFlowDirection": "TopToDown",
     "fillColor": [
-      { "color": "@rarityCore", "colorModifier": { "brightness": -0.8, "saturation": 0 } },
-      { "color": "@rarityCore", "colorModifier": { "brightness": -0.7, "saturation": 0.0 } }
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.8, "saturation": 0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.7, "saturation": 0.0 } }
     ]
   },
   "titleBar": {
@@ -27,20 +27,20 @@
     "colorFlowDirection": "LeftToRight",
     "extraOpacityOnRight": false,
     "fillColor": [
-      { "color": "@rarityCore", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
-      { "color": "@rarityCore", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } }
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } }
     ]
   },
   "itemName": {
     "changeColor": {
       "enabled": false,
-      "color": "@rarityCore"
+      "color": "@vanillaRarity"
     }
   },
   "extraToolTip": {
     "enabled": true,
-    "content": "@rarityCore",
-    "contentColor": "@rarityCore"
+    "content": "@vanillaRarity",
+    "contentColor": "@vanillaRarity"
   },
   "itemModel": {
     "enabled": true,
@@ -55,6 +55,6 @@
     "smoothScaling": { "enabled": true, "speed": 1.0 },
     "fadeOut": { "enabled": true, "delay": 100, "duration": 200 },
     "fadeIn": { "enabled": true, "duration": 50 },
-    "switchEffect": { "enabled": true, "color": "@rarityCore", "duration": 500, "length": 1.6, "segmentation": 50 }
+    "switchEffect": { "enabled": true, "color": "@vanillaRarity", "duration": 500, "length": 1.6, "segmentation": 50 }
   }
 }
