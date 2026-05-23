@@ -1,0 +1,59 @@
+{
+  "border": {
+    "opacity": 1.0,
+    "colorFlowSpeed": 1.0,
+    "colorFlowDirection": "Clockwise",
+    "fillColor": [
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.2, "saturation": 0.2 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.2, "saturation": -0.2 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.2, "saturation": -0.2 } }
+    ]
+  },
+  "backGround": {
+    "opacity": 0.8,
+    "colorFlowSpeed": 0.0,
+    "colorFlowDirection": "TopToDown",
+    "fillColor": [
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } }
+    ]
+  },
+  "titleBar": {
+    "enabled": true,
+    "twoHeight": true,
+    "opacity": 1.0,
+    "colorFlowSpeed": 1.0,
+    "colorFlowDirection": "LeftToRight",
+    "extraOpacityOnRight": true,
+    "fillColor": [
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } }
+    ]
+  },
+  "itemName": {
+    "changeColor": {
+      "enabled": true,
+      "color": "@vanillaRarity"
+    }
+  },
+  "extraToolTip": {
+    "enabled": true,
+    "content": "@vanillaRarity",
+    "contentColor": "@vanillaRarity"
+  },
+  "itemModel": {
+    "enabled": true,
+    "bigSize": true
+  },
+  "animation": {
+    "itemModel": {
+      "switching": { "enabled": true, "startSize": 0.5 },
+      "appearing": { "enabled": true, "startSize": 0.5 }
+    },
+    "smoothMovement": { "realTimeEnabled": true, "speed": 1.0 },
+    "smoothScaling": { "enabled": true, "speed": 1.0 },
+    "fadeOut": { "enabled": true, "delay": 500, "duration": 100 },
+    "fadeIn": { "enabled": true, "duration": 100 },
+    "switchEffect": { "enabled": true, "color": "@vanillaRarity", "duration": 500, "length": 1.6, "segmentation": 50 }
+  }
+}

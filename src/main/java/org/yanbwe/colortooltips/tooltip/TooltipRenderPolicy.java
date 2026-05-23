@@ -1,11 +1,16 @@
 package org.yanbwe.colortooltips.tooltip;
 
 import net.minecraft.world.item.ItemStack;
-import org.yanbwe.colortooltips.Config;
 import org.yanbwe.colortooltips.compat.RarityCoreProxy;
+import org.yanbwe.colortooltips.config.ConfigManager;
+import org.yanbwe.colortooltips.config.StyleDefinition;
 
 /**
- * 智能判断是否渲染提示框的各个组件
+ * 智能判断是否渲染提示框的各个组件。
+ * <p>
+ * v2 更新：将旧版 {@code Config} 引用全部替换为 {@link ConfigManager}；
+ * 渐变边框由样式 {@code border.colorFlowSpeed > 0} 判断，
+ * 渐变标题栏由样式 {@code titleBar.enabled} 判断。
  */
 public final class TooltipRenderPolicy {
     private TooltipRenderPolicy() {}
@@ -25,23 +30,33 @@ public final class TooltipRenderPolicy {
     }
 
     /**
-     * 是否应该显示渐变边框
+     * 是否应该显示渐变边框。
+     * 由样式配置 {@code border.colorFlowSpeed > 0} 决定。
+     *
+     * @param stack 物品栈
+     * @param style 当前应用的样式定义，为 null 时返回 false
+     * @return 当 colorFlowSpeed > 0 且物品有效时返回 true
      */
-    public static boolean shouldShowGradientBorder(ItemStack stack) {
-        if (!Config.BORDER_GRADIENT_ENABLED.get()) {
+    public static boolean shouldShowGradientBorder(ItemStack stack, StyleDefinition style) {
+        if (style == null || !hasValidItemStack(stack)) {
             return false;
         }
-        return hasValidItemStack(stack);
+        return style.getBorder().getColorFlowSpeed() > 0;
     }
 
     /**
-     * 是否应该显示渐变标题栏
+     * 是否应该显示渐变标题栏。
+     * 由样式配置 {@code titleBar.enabled} 决定。
+     *
+     * @param stack 物品栈
+     * @param style 当前应用的样式定义，为 null 时返回 false
+     * @return 当 titleBar.enabled 为 true 且物品有效时返回 true
      */
-    public static boolean shouldShowGradientTitleBar(ItemStack stack) {
-        if (!Config.TITLEBAR_GRADIENT_ENABLED.get()) {
+    public static boolean shouldShowGradientTitleBar(ItemStack stack, StyleDefinition style) {
+        if (style == null || !hasValidItemStack(stack)) {
             return false;
         }
-        return hasValidItemStack(stack);
+        return style.getTitleBar().isEnabled();
     }
 
     /**
@@ -70,10 +85,12 @@ public final class TooltipRenderPolicy {
 
     /**
      * 是否应该显示自定义渲染的彩色提示框
-     * 这个方法决定了整个提示框样式是否被接管
+     * 这个方法决定了整个提示框样式是否被接管。
+     * <p>
+     * v2 更新：全局启用开关迁移至 {@link ConfigManager#isEnabled()}。
      */
     public static boolean shouldUseCustomRendering(ItemStack stack) {
-        if (!Config.ENABLED.get()) {
+        if (!ConfigManager.getInstance().isEnabled()) {
             return false;
         }
         // 虚拟物品不使用自定义渲染
@@ -142,10 +159,12 @@ public final class TooltipRenderPolicy {
     }
 
     /**
-     * 检查是否应该显示彩色边框
-     * 始终显示（即使是纯文本tooltip）
+     * 检查是否应该显示彩色边框。
+     * 始终显示（即使是纯文本 tooltip）。
+     * <p>
+     * v2 更新：全局启用开关迁移至 {@link ConfigManager#isEnabled()}。
      */
     public static boolean shouldShowColoredBorder(ItemStack stack) {
-        return Config.ENABLED.get();
+        return ConfigManager.getInstance().isEnabled();
     }
 }

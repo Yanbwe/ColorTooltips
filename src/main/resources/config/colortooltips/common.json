@@ -1,0 +1,25 @@
+{
+  "styleSelector": {
+    "common": {
+      "onlyText": "Vanilla",
+      "Common": "Vanilla",
+      "Uncommon": "Vanilla",
+      "Rare": "Vanilla",
+      "Epic": "Vanilla",
+      "items": {}
+    },
+    "rarityCore": {
+      "onlyText": "RarityCoreStyles",
+      "*": "RarityCoreStyles",
+      "items": {}
+    }
+  },
+  "tooltipLock": {
+    "enabled": true,
+    "sensitivity": 10.0
+  },
+  "onlyTextTooltips": {
+    "enabled": true
+  },
+  "smoothColor": true
+}

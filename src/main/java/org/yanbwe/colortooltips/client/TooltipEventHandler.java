@@ -14,7 +14,6 @@ import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.yanbwe.colortooltips.Config;
 import org.yanbwe.colortooltips.animation.TooltipAnchor;
 import org.yanbwe.colortooltips.animation.TooltipAnimationSystem;
 import org.yanbwe.colortooltips.animation.TooltipLockManager;
@@ -22,6 +21,10 @@ import org.yanbwe.colortooltips.animation.TooltipState;
 import org.yanbwe.colortooltips.animation.TooltipTarget;
 import org.yanbwe.colortooltips.compat.ApotheosisCompat;
 import org.yanbwe.colortooltips.compat.RarityCoreProxy;
+import org.yanbwe.colortooltips.config.ColorFlowAnimator;
+import org.yanbwe.colortooltips.config.ConfigManager;
+import org.yanbwe.colortooltips.config.DynamicColorResolver;
+import org.yanbwe.colortooltips.config.StyleDefinition;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
 import org.yanbwe.colortooltips.tooltip.TooltipRenderPolicy;
 import org.yanbwe.colortooltips.util.ColorUtils;
@@ -37,10 +40,12 @@ public class TooltipEventHandler {
     private static ClientTooltipPositioner cachedPositioner = null;
     private static boolean renderedThisFrame = false;
     private static boolean isReplayPhase = false;
+    private static int lastBorderColor = 0xFFFFFFFF;
+    private static int lastBgColor = 0xFF000000;
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onGatherComponents(RenderTooltipEvent.GatherComponents event) {
-        if (!Config.ENABLED.get()) {
+        if (!ConfigManager.getInstance().isEnabled()) {
             return;
         }
 
@@ -59,8 +64,9 @@ public class TooltipEventHandler {
             return;
         }
 
-        // 自定义标题栏开关：未启用或无 RarityCore 时不替换物品名称，保留原版
-        if (!Config.CUSTOM_HEADER_ENABLED.get() || !RarityCoreProxy.isLoaded()) {
+        // 从当前样式配置判断标题栏启用状态，未启用或无 RarityCore 时不替换物品名称，保留原版
+        StyleDefinition style = ConfigManager.getInstance().getStyleForStack(itemStack, false);
+        if (!style.getTitleBar().isEnabled() || !RarityCoreProxy.isLoaded()) {
             return;
         }
 
@@ -72,12 +78,14 @@ public class TooltipEventHandler {
             tooltipElements.remove(0);
         }
 
-        tooltipElements.add(0, Either.right(net.minecraft.world.inventory.tooltip.TooltipComponent.class.cast(new ColorHeaderComponent(itemStack))));
+        ColorHeaderComponent header = new ColorHeaderComponent(itemStack);
+        header.setStyleDefinition(style, false);
+        tooltipElements.add(0, Either.right(net.minecraft.world.inventory.tooltip.TooltipComponent.class.cast(header)));
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderTooltipColor(RenderTooltipEvent.Color event) {
-        if (!Config.ENABLED.get()) {
+        if (!ConfigManager.getInstance().isEnabled()) {
             return;
         }
 
@@ -92,24 +100,19 @@ public class TooltipEventHandler {
             return;
         }
 
-        int borderColor;
-        int bgColor;
+        // 从样式系统获取边框和背景颜色（通过 DynamicColorResolver 解析，应用 colorModifier）
+        StyleDefinition style = ConfigManager.getInstance().getStyleForStack(itemStack, false);
 
-        if (RarityCoreProxy.isLoaded()) {
-            int rarity = RarityCoreProxy.getRarity(itemStack);
-            borderColor = RarityCoreProxy.getRarityArgbColor(rarity);
-            bgColor = ColorUtils.withAlpha(
-                ColorUtils.darkenColor(borderColor, 1.0f - Config.BG_DARKEN.get().floatValue()),
-                Config.BG_ALPHA.get().floatValue()
-            );
-        } else {
-            // 降级：白色边框，黑色背景
-            borderColor = RarityCoreProxy.FALLBACK_BORDER_COLOR;
-            bgColor = ColorUtils.withAlpha(
-                RarityCoreProxy.FALLBACK_BG_COLOR,
-                Config.BG_ALPHA.get().floatValue()
-            );
-        }
+        List<StyleDefinition.FillColorEntry> borderEntries = style.getBorder().getFillColor();
+        int borderColor = borderEntries.isEmpty()
+            ? DynamicColorResolver.resolve("@rarityCore", itemStack)
+            : DynamicColorResolver.resolve(borderEntries.get(0), itemStack);
+
+        List<StyleDefinition.FillColorEntry> bgEntries = style.getBackGround().getFillColor();
+        int rawBgColor = bgEntries.isEmpty()
+            ? DynamicColorResolver.resolve("@rarityCore", itemStack)
+            : DynamicColorResolver.resolve(bgEntries.get(0), itemStack);
+        int bgColor = ColorUtils.withAlpha(rawBgColor, (float) style.getBackGround().getOpacity());
 
         event.setBorderStart(borderColor);
         event.setBorderEnd(borderColor);
@@ -130,7 +133,7 @@ public class TooltipEventHandler {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
-        if (!Config.ENABLED.get()) {
+        if (!ConfigManager.getInstance().isEnabled()) {
             return;
         }
         if (!renderedThisFrame) {
@@ -163,7 +166,8 @@ public class TooltipEventHandler {
     }
 
     public static boolean renderCustomTooltip(GuiGraphics graphics, Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, ItemStack stack, boolean liveRender) {
-        if (!Config.ENABLED.get()) {
+        ConfigManager cm = ConfigManager.getInstance();
+        if (!cm.isEnabled()) {
             return false;
         }
 
@@ -179,16 +183,40 @@ public class TooltipEventHandler {
 
         // 智能判断：检查是否有有效物品
         boolean hasValidItem = TooltipRenderPolicy.hasValidItemStack(stack);
-        
-        // 获取颜色
-        int targetRawBorderColor;
-        if (RarityCoreProxy.isLoaded()) {
-            // 无物品时使用稀有度1的颜色
-            int rarity = TooltipRenderPolicy.getRarity(stack);
-            targetRawBorderColor = RarityCoreProxy.getRarityArgbColor(rarity);
-        } else {
-            targetRawBorderColor = RarityCoreProxy.FALLBACK_BORDER_COLOR;
+        boolean isTextOnly = !hasValidItem;
+
+        // onlyTextTooltips.enabled=false 时不渲染纯文本提示框（让原版系统处理）
+        if (isTextOnly && !cm.isOnlyTextTooltipsEnabled()) {
+            return false;
         }
+
+        // 关键：根据物品和提示框模式选择当前样式
+        StyleDefinition style = cm.getStyleForStack(stack, isTextOnly);
+
+        // 将样式驱动的动画参数同步到动画系统（fadeOutDelay、switchFlashDuration 等）
+        TooltipAnimationSystem.applyStyle(style, stack);
+
+        // 跨样式 Crossfade 检测：样式名变化时触发颜色混合过渡
+        String currentStyleName = cm.getStyleNameForStack(stack, isTextOnly);
+        String lastStyleName = TooltipAnimationSystem.getLastStyleName();
+        boolean styleChanged = currentStyleName != null
+                && !currentStyleName.equals(lastStyleName)
+                && lastStyleName != null; // 首次不计入 crossfade
+
+        // 预解析所有 fillColor 条目（应用 colorModifier + 动态 token 解析）
+        int[] borderFillColors = resolveFillColors(style.getBorder().getFillColor(), stack);
+        int[] bgFillColors = resolveFillColors(style.getBackGround().getFillColor(), stack);
+        int[] titleBarFillColors = resolveFillColors(style.getTitleBar().getFillColor(), stack);
+
+        // 从解析结果中取第一个颜色作为 targetRawBorderColor（供动画系统和单色边框使用）
+        int targetRawBorderColor = borderFillColors.length > 0
+            ? borderFillColors[0]
+            : DynamicColorResolver.resolve("@rarityCore", stack);
+
+        // 更新颜色流动动画引擎（基准 2 秒/周期，帧间插值消除卡顿）
+        ColorFlowAnimator animator = cm.getColorFlowAnimator();
+        animator.update();
+        float flowFraction = animator.getInterpolatedFlowFraction(Minecraft.getInstance().getFrameTime());
 
         if (liveRender && !isReplayPhase) {
             renderedThisFrame = true;
@@ -198,8 +226,6 @@ public class TooltipEventHandler {
             cachedFont = font;
             cachedPositioner = positioner;
         }
-
-        TooltipRenderer.updateScrollOffset();
 
         int contentWidth = 0;
         int contentHeight = 0;
@@ -255,24 +281,24 @@ public class TooltipEventHandler {
         int renderY = state.getRenderY();
         int borderColor = state.colorArgb;
 
-        int bgColor;
-        int darkenedBorderColor;
-        if (RarityCoreProxy.isLoaded()) {
-            bgColor = ColorUtils.withAlpha(
-                    ColorUtils.darkenColor(borderColor, 1.0f - Config.BG_DARKEN.get().floatValue()),
-                    Config.BG_ALPHA.get().floatValue()
-            );
-            darkenedBorderColor = ColorUtils.darkenColor(borderColor, 0.5f);
-        } else {
-            // 降级：黑色背景，黑色内描边（边框颜色流动仍保留，以白色为基色）
-            bgColor = ColorUtils.withAlpha(
-                    RarityCoreProxy.FALLBACK_BG_COLOR,
-                    Config.BG_ALPHA.get().floatValue()
-            );
-            darkenedBorderColor = RarityCoreProxy.FALLBACK_INNER_BORDER_COLOR;
-        }
+        // 背景颜色：优先使用解析后的 bgFillColors 第一个颜色作为单色回退
+        int bgColor = bgFillColors.length > 0
+            ? bgFillColors[0]
+            : ColorUtils.withAlpha(DynamicColorResolver.resolve("@rarityCore", stack), 0.8f);
+        int darkenedBorderColor = ColorUtils.darkenColor(borderColor, 0.5f);
 
         float fadeAlpha = state.alpha;
+
+        // 跨样式 Crossfade 触发：记录旧颜色后启动过渡
+        if (styleChanged && liveRender && !isReplayPhase) {
+            TooltipAnimationSystem.startCrossfade(currentStyleName,
+                    lastBorderColor, lastBgColor,
+                    borderColor, bgColor);
+        }
+
+        // 跨样式 Crossfade 进度（0~1，无活动时为 -1）
+        float crossfadeProgress = TooltipAnimationSystem.getCrossfadeProgress();
+        boolean crossfading = crossfadeProgress >= 0.0f;
 
         graphics.pose().pushPose();
         graphics.pose().translate(0.0, 0.0, 400.0);
@@ -283,21 +309,64 @@ public class TooltipEventHandler {
         // 开启裁剪以确保超出过渡大小的内容不显示,允许外扩 2 像素以保证 1px 的外边框能正常渲染
         graphics.enableScissor(renderX - 2, renderY - 2, renderX + width + 2, renderY + height + 2);
 
-        // 绘制边框和背景(使用插值后的尺寸和颜色)
-        TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
-        if (Config.BORDER_GRADIENT_ENABLED.get()) {
-            // borderColor为动画插值色作渐变基色，targetRawBorderColor为稳定稀有度色作随机偏移缓存key，避免插值时闪烁
-            graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderColor, targetRawBorderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt()));
+        if (crossfading) {
+            // ── 跨样式 Crossfade 渲染：旧层淡出 + 新层淡入 ──
+            float oldAlpha = fadeAlpha * (1.0f - crossfadeProgress);
+            float newAlpha = fadeAlpha * crossfadeProgress;
+            int oldBorder = TooltipAnimationSystem.getCrossfadeOldBorderColor();
+            int oldBg = TooltipAnimationSystem.getCrossfadeOldBgColor();
+            int newBorder = TooltipAnimationSystem.getCrossfadeNewBorderColor();
+            int newBg = TooltipAnimationSystem.getCrossfadeNewBgColor();
+            int oldDark = ColorUtils.darkenColor(oldBorder, 0.5f);
+            int newDark = ColorUtils.darkenColor(newBorder, 0.5f);
+
+            // 旧层（淡出）
+            TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, oldDark, oldAlpha);
+            TooltipRenderer.drawRarityBorder(graphics, renderX, renderY, width, height, oldBorder, oldAlpha);
+            TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, oldDark, oldAlpha);
+            graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, oldBg, oldAlpha));
+
+            // 新层（淡入）
+            TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, newDark, newAlpha);
+            TooltipRenderer.drawRarityBorder(graphics, renderX, renderY, width, height, newBorder, newAlpha);
+            TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, newDark, newAlpha);
+            graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, newBg, newAlpha));
         } else {
-            TooltipRenderer.drawRarityBorder(graphics, renderX, renderY, width, height, borderColor, fadeAlpha);
+            // ── 正常渲染（无 crossfade）──
+            // 绘制边框和背景(使用插值后的尺寸和颜色)
+            // 边框：从 border.colorFlowSpeed > 0 判断是否启用流动
+            float borderOpacity = (float) style.getBorder().getOpacity();
+            if (style.getBorder().getColorFlowSpeed() > 0 && borderFillColors.length > 0) {
+                // 流动边框路径：drawGradientScrollingBorder 内部已应用 border.opacity
+                int alphaDark = (int) (((darkenedBorderColor >> 24) & 0xFF) * borderOpacity);
+                int darkenedBorderStatic = (darkenedBorderColor & 0x00FFFFFF) | (alphaDark << 24);
+                TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderStatic, fadeAlpha);
+                graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderFillColors, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), style.getBorder(), flowFraction));
+                TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, darkenedBorderStatic, fadeAlpha);
+            } else {
+                // 静态边框路径：手动应用 border.opacity 到 alpha 通道
+                int alphaBorder = (int) (((borderColor >> 24) & 0xFF) * borderOpacity);
+                int borderColorStatic = (borderColor & 0x00FFFFFF) | (alphaBorder << 24);
+                int alphaDark = (int) (((darkenedBorderColor >> 24) & 0xFF) * borderOpacity);
+                int darkenedBorderStatic = (darkenedBorderColor & 0x00FFFFFF) | (alphaDark << 24);
+                TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderStatic, fadeAlpha);
+                TooltipRenderer.drawRarityBorder(graphics, renderX, renderY, width, height, borderColorStatic, fadeAlpha);
+                TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, darkenedBorderStatic, fadeAlpha);
+            }
+
+            // 背景：优先使用多色离散段渲染，回退到单色填充
+            if (bgFillColors.length > 0) {
+                graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, bgFillColors, fadeAlpha, style.getBackGround(), flowFraction));
+            } else {
+                graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, bgColor, fadeAlpha));
+            }
         }
-        TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, darkenedBorderColor, fadeAlpha);
 
-        graphics.drawManaged(() -> TooltipRenderer.drawBackground(graphics, renderX, renderY, width, height, bgColor, fadeAlpha));
-
-        // 标题栏渐变：仅在有 RarityCore 时显示
-        if (hasValidItem && Config.TITLEBAR_GRADIENT_ENABLED.get() && RarityCoreProxy.isLoaded()) {
-            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, borderColor, targetRawBorderColor, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), components.isEmpty() ? 24 : components.get(0).getHeight()));
+        // 标题栏：从 titleBar.enabled 判断，纯文本提示框(无有效物品)时强制禁用（crossfade 期间也渲染新标题栏）
+        if (hasValidItem && style.getTitleBar().isEnabled() && titleBarFillColors.length > 0) {
+            int titleBarH = style.getTitleBar().isTwoHeight() ? 24 : 12;
+            float titleAlpha = crossfading ? fadeAlpha * crossfadeProgress : fadeAlpha;
+            graphics.drawManaged(() -> TooltipRenderer.drawGradientTitleBar(graphics, renderX, renderY, width, height, titleBarFillColors, titleAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), titleBarH, style.getTitleBar(), flowFraction));
         }
 
         int componentX = innerX;
@@ -334,7 +403,9 @@ public class TooltipEventHandler {
 
         float switchFlashProgress = TooltipAnimationSystem.getSwitchFlashProgress();
         if (switchFlashProgress >= 0.0f) {
-            graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, renderX, renderY, width, height, switchFlashProgress, fadeAlpha, isLeft));
+            int flashColor = TooltipAnimationSystem.getSwitchFlashColor();
+            StyleDefinition.AnimationConfig.SwitchEffectConfig switchEffect = style.getAnimation().getSwitchEffect();
+            graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, renderX, renderY, width, height, switchFlashProgress, fadeAlpha, isLeft, switchEffect, flashColor));
         }
 
         // 在关闭裁剪前提交缓冲区，确保裁剪范围生效
@@ -343,10 +414,37 @@ public class TooltipEventHandler {
 
         graphics.pose().popPose();
 
+        // 缓存本帧的渲染颜色，供下一帧 crossfade 检测使用
+        if (liveRender && !isReplayPhase && !crossfading) {
+            lastBorderColor = borderColor;
+            lastBgColor = bgColor;
+        }
+
         return true;
     }
 
     public static boolean isVirtualItem(ItemStack itemStack) {
         return itemStack != null && !itemStack.isEmpty() && itemStack.getTooltipImage().isPresent();
+    }
+
+    /**
+     * 批量解析 FillColorEntry 列表，返回已应用 colorModifier 的 ARGB 颜色数组。
+     * <p>
+     * 对每个 entry 调用 {@link DynamicColorResolver#resolve(StyleDefinition.FillColorEntry, ItemStack)}，
+     * 确保动态 token（@rarityCore 等）和 colorModifier（brightness/saturation）都被应用。
+     *
+     * @param entries   FillColorEntry 列表（可为空）
+     * @param itemStack 目标物品栈
+     * @return 解析后的 ARGB 颜色数组，entries 为空时返回空数组
+     */
+    private static int[] resolveFillColors(List<StyleDefinition.FillColorEntry> entries, ItemStack itemStack) {
+        if (entries == null || entries.isEmpty()) {
+            return new int[0];
+        }
+        int[] colors = new int[entries.size()];
+        for (int i = 0; i < entries.size(); i++) {
+            colors[i] = DynamicColorResolver.resolve(entries.get(i), itemStack);
+        }
+        return colors;
     }
 }

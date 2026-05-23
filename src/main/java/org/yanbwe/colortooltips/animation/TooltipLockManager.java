@@ -4,7 +4,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.yanbwe.colortooltips.Config;
+import org.yanbwe.colortooltips.config.ConfigManager;
 
 public class TooltipLockManager {
     private static boolean hasValidAnchor = false;
@@ -18,6 +18,11 @@ public class TooltipLockManager {
      */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMouseScroll(ScreenEvent.MouseScrolled.Pre event) {
+        ConfigManager config = ConfigManager.getInstance();
+        if (!config.isTooltipLockEnabled()) {
+            return;
+        }
+
         if (!hasValidAnchor) {
             return;
         }
@@ -32,7 +37,7 @@ public class TooltipLockManager {
             return;
         }
 
-        float sensitivity = Config.LOCK_SCROLL_SENSITIVITY.get().floatValue();
+        float sensitivity = (float) config.getLockSensitivity();
         offsetY -= (float) (scrollDelta * sensitivity);
 
         event.setCanceled(true);

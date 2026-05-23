@@ -3,8 +3,9 @@ package org.yanbwe.colortooltips.animation;
 import net.minecraft.Util;
 
 public class TooltipAnimator {
-    private static final float POSITION_SPEED = 16.0f;
-    private static final float SIZE_SPEED = 14.0f;
+    // 基础速度常量（由配置的速度倍率缩放）
+    private static final float BASE_POSITION_SPEED = 16.0f;
+    private static final float BASE_SIZE_SPEED = 14.0f;
     private static final float ALPHA_SPEED = 18.0f;
     private static final float TRANSITION_SPEED = 8.0f;
     private static final float SWITCH_OFFSET_SPEED = 14.0f;
@@ -15,6 +16,13 @@ public class TooltipAnimator {
     private boolean initialized;
     private float switchOffsetX;
     private float switchOffsetY;
+
+    // 可配置的平滑参数（由 TooltipAnimationSystem.applyStyle() 设置）
+    private float positionSpeed = BASE_POSITION_SPEED;
+    private float sizeSpeed = BASE_SIZE_SPEED;
+    private float alphaSpeed = ALPHA_SPEED;
+    private boolean smoothMovement = true;
+    private boolean smoothScaling = true;
 
     public void reset() {
         target = null;
@@ -32,6 +40,11 @@ public class TooltipAnimator {
         state.transitionProgress = 1.0f;
         switchOffsetX = 0.0f;
         switchOffsetY = 0.0f;
+        positionSpeed = BASE_POSITION_SPEED;
+        sizeSpeed = BASE_SIZE_SPEED;
+        alphaSpeed = ALPHA_SPEED;
+        smoothMovement = true;
+        smoothScaling = true;
     }
 
     public void setTarget(TooltipTarget newTarget) {
@@ -106,11 +119,23 @@ public class TooltipAnimator {
         float dt = Math.max(0.0f, Math.min(0.05f, (now - lastTickTimeMs) / 1000.0f));
         lastTickTimeMs = now;
 
-        state.width = approach(state.width, target.width, SIZE_SPEED, dt);
-        state.height = approach(state.height, target.height, SIZE_SPEED, dt);
-        state.anchorX = approach(state.anchorX, target.anchorX, POSITION_SPEED, dt);
-        state.anchorY = approach(state.anchorY, target.anchorY, POSITION_SPEED, dt);
-        state.alpha = approach(state.alpha, target.alpha, ALPHA_SPEED, dt);
+        // 平滑缩放 vs 直接跳变（由 smoothScaling 控制）
+        if (smoothScaling) {
+            state.width = approach(state.width, target.width, sizeSpeed, dt);
+            state.height = approach(state.height, target.height, sizeSpeed, dt);
+        } else {
+            state.width = target.width;
+            state.height = target.height;
+        }
+        // 平滑移动 vs 直接跳变（由 smoothMovement 控制）
+        if (smoothMovement) {
+            state.anchorX = approach(state.anchorX, target.anchorX, positionSpeed, dt);
+            state.anchorY = approach(state.anchorY, target.anchorY, positionSpeed, dt);
+        } else {
+            state.anchorX = target.anchorX;
+            state.anchorY = target.anchorY;
+        }
+        state.alpha = approach(state.alpha, target.alpha, alphaSpeed, dt);
         state.transitionProgress = approach(state.transitionProgress, 1.0f, TRANSITION_SPEED, dt);
         state.anchor = target.anchor;
         switchOffsetX = approach(switchOffsetX, 0.0f, SWITCH_OFFSET_SPEED, dt);
@@ -131,6 +156,37 @@ public class TooltipAnimator {
         }
         float blend = 1.0f - (float) Math.exp(-speed * dt);
         return current + diff * blend;
+    }
+
+    /**
+     * 设置平滑移动参数。
+     * @param enabled true = 平滑缓动，false = 直接跳变到目标位置
+     * @param speed 速度倍率（1.0 = 默认速度），最小 0.1
+     */
+    public void setSmoothMovement(boolean enabled, float speed) {
+        this.smoothMovement = enabled;
+        this.positionSpeed = Math.max(0.1f, speed * BASE_POSITION_SPEED);
+    }
+
+    /**
+     * 设置平滑缩放参数。
+     * @param enabled true = 平滑缩放，false = 直接跳变到目标大小
+     * @param speed 速度倍率（1.0 = 默认速度），最小 0.1
+     */
+    public void setSmoothScaling(boolean enabled, float speed) {
+        this.smoothScaling = enabled;
+        this.sizeSpeed = Math.max(0.1f, speed * BASE_SIZE_SPEED);
+    }
+
+    /**
+     * 设置透明度过渡速度。
+     * 通过指数平滑控制 fade-in/fade-out 过渡时长。
+     * speed 越高过渡越快。约 5/speed 秒到达 ~99% 的目标值。
+     *
+     * @param speed 透明度过渡速度，最小 0.1，默认 ALPHA_SPEED=18.0f
+     */
+    public void setAlphaSpeed(float speed) {
+        this.alphaSpeed = Math.max(0.1f, speed);
     }
 
     private static float computeRenderX(TooltipAnchor anchor, float anchorX, float width) {

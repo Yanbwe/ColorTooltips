@@ -1,0 +1,68 @@
+{
+  "border": {
+    "opacity": 1.0,
+    "colorFlowSpeed": 1.0,
+    "colorFlowDirection": "Clockwise",
+    "fillColor": [
+      { "color": "A100FF" },
+      { "color": "FF0033" },
+      { "color": "FF9000" },
+      { "color": "D8FF00" },
+      { "color": "2AFF00" },
+      { "color": "00FFA9" },
+      { "color": "0099FF" },
+      { "color": "0000FF" }
+    ]
+  },
+  "backGround": {
+    "opacity": 0.8,
+    "colorFlowSpeed": 0.0,
+    "colorFlowDirection": "TopToDown",
+    "fillColor": [
+      { "color": "A100FF" },
+      { "color": "FF0033" },
+      { "color": "FF9000" },
+      { "color": "D8FF00" }
+    ]
+  },
+  "titleBar": {
+    "enabled": true,
+    "twoHeight": true,
+    "opacity": 1.0,
+    "colorFlowSpeed": 1.0,
+    "colorFlowDirection": "LeftToRight",
+    "extraOpacityOnRight": true,
+    "fillColor": [
+      { "color": "2AFF00" },
+      { "color": "00FFA9" },
+      { "color": "0099FF" },
+      { "color": "0000FF" }
+    ]
+  },
+  "itemName": {
+    "changeColor": {
+      "enabled": true,
+      "color": "A100FF"
+    }
+  },
+  "extraToolTip": {
+    "enabled": true,
+    "content": "@rarityCore",
+    "contentColor": "A100FF"
+  },
+  "itemModel": {
+    "enabled": true,
+    "bigSize": true
+  },
+  "animation": {
+    "itemModel": {
+      "switching": { "enabled": true, "startSize": 0.5 },
+      "appearing": { "enabled": true, "startSize": 0.5 }
+    },
+    "smoothMovement": { "realTimeEnabled": true, "speed": 1.0 },
+    "smoothScaling": { "enabled": true, "speed": 1.0 },
+    "fadeOut": { "enabled": true, "delay": 500, "duration": 100 },
+    "fadeIn": { "enabled": true, "duration": 100 },
+    "switchEffect": { "enabled": true, "color": "A100FF", "duration": 500, "length": 1.6, "segmentation": 50 }
+  }
+}

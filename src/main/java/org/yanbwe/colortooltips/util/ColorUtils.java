@@ -100,4 +100,48 @@ public class ColorUtils {
 
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
+
+    /**
+     * HSV 空间插值，对色相使用最短路径（环绕色相环）。
+     * <p>
+     * 当两个颜色在色相环上跨越 0° 边界时（如 350° → 10°），
+     * 走短路径（+20°）而非长路径（-340°），确保动画不出现逆向色相跳跃。
+     *
+     * @param fromArgb 起始颜色（ARGB，alpha 保留不参与 HSV 插值）
+     * @param toArgb   目标颜色（ARGB，alpha 保留不参与 HSV 插值）
+     * @param ratio    插值比例 0.0~1.0
+     * @return 插值后的 ARGB 颜色
+     */
+    public static int interpolateColorHSV(int fromArgb, int toArgb, float ratio) {
+        float[] fromHsv = rgbToHsv(fromArgb);
+        float[] toHsv = rgbToHsv(toArgb);
+
+        // 色相环最短路径插值
+        float h;
+        float delta = toHsv[0] - fromHsv[0];
+        if (Math.abs(delta) > 0.5f) {
+            // 跨越 0°/360° 边界：走短路径
+            if (delta > 0) {
+                h = fromHsv[0] + (delta - 1.0f) * ratio;
+            } else {
+                h = fromHsv[0] + (delta + 1.0f) * ratio;
+            }
+            if (h < 0) h += 1.0f;
+            if (h >= 1.0f) h -= 1.0f;
+        } else {
+            h = fromHsv[0] + delta * ratio;
+        }
+
+        float s = fromHsv[1] + (toHsv[1] - fromHsv[1]) * ratio;
+        float v = fromHsv[2] + (toHsv[2] - fromHsv[2]) * ratio;
+
+        int rgb = hsvToRgb(h, s, v);
+
+        // 保留原始 alpha（取两者 alpha 插值）
+        int fromAlpha = (fromArgb >> 24) & 0xFF;
+        int toAlpha = (toArgb >> 24) & 0xFF;
+        int alpha = (int) (fromAlpha + (toAlpha - fromAlpha) * ratio);
+
+        return (alpha << 24) | (rgb & 0x00FFFFFF);
+    }
 }
