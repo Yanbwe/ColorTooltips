@@ -357,12 +357,19 @@ public class TooltipEventHandler {
             // 边框：从 border.colorFlowSpeed > 0 判断是否启用流动
             float borderOpacity = (float) style.getBorder().getOpacity();
             if (style.getBorder().getColorFlowSpeed() > 0 && borderFillColors.length > 0) {
-                // 流动边框路径：drawGradientScrollingBorder 内部已应用 border.opacity
-                int alphaDark = (int) (((darkenedBorderColor >> 24) & 0xFF) * borderOpacity);
-                int darkenedBorderStatic = (darkenedBorderColor & 0x00FFFFFF) | (alphaDark << 24);
-                TooltipRenderer.drawOuterBorder(graphics, renderX, renderY, width, height, darkenedBorderStatic, fadeAlpha);
-                graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(graphics, renderX, renderY, width, height, borderFillColors, fadeAlpha, TooltipAnimationSystem.getTargetWidthInt(), TooltipAnimationSystem.getTargetHeightInt(), style.getBorder(), flowFraction));
-                TooltipRenderer.drawInnerBorder(graphics, renderX, renderY, width, height, darkenedBorderStatic, fadeAlpha);
+                // 流动边框路径：外描边 + 主边框 + 内描边，均使用多色流动，描边颜色统一变暗 0.5x
+                // drawGradientScrollingBorder 内部已应用 border.opacity
+                int targetW = TooltipAnimationSystem.getTargetWidthInt();
+                int targetH = TooltipAnimationSystem.getTargetHeightInt();
+                graphics.drawManaged(() -> TooltipRenderer.drawDarkenedGradientScrollingBorder(
+                    graphics, renderX - 1, renderY - 1, width + 2, height + 2,
+                    borderFillColors, fadeAlpha, targetW, targetH, style.getBorder(), flowFraction, 0.5f));
+                graphics.drawManaged(() -> TooltipRenderer.drawGradientScrollingBorder(
+                    graphics, renderX, renderY, width, height,
+                    borderFillColors, fadeAlpha, targetW, targetH, style.getBorder(), flowFraction));
+                graphics.drawManaged(() -> TooltipRenderer.drawDarkenedGradientScrollingBorder(
+                    graphics, renderX + 1, renderY + 1, width - 2, height - 2,
+                    borderFillColors, fadeAlpha, targetW, targetH, style.getBorder(), flowFraction, 0.5f));
             } else {
                 // 静态边框路径：手动应用 border.opacity 到 alpha 通道
                 int alphaBorder = (int) (((borderColor >> 24) & 0xFF) * borderOpacity);

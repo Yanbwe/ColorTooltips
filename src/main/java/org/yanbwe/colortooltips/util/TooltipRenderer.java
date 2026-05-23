@@ -15,6 +15,16 @@ public class TooltipRenderer {
     // 默认渐变周期（固定值，原 Config.GRADIENT_PERIOD 默认 200.0）
     private static final float DEFAULT_GRADIENT_PERIOD = 200.0f;
 
+    // 旧版颜色变化参数（硬编码默认值，替代已移除的 ConfigManager stub）
+    private static final double DEFAULT_HUE_VARIATION = 0.1;
+    private static final double DEFAULT_VALUE_VARIATION = 0.4;
+    private static final double DEFAULT_SATURATION_VARIATION = 0.1;
+
+    // 旧版入场动画参数（硬编码默认值）
+    private static final int DEFAULT_TAIL_SEGMENTS = 50;
+    private static final float DEFAULT_TAIL_LENGTH = 1.6f;
+    private static final float DEFAULT_ALPHA_EXPONENT = 0.5f;
+
     // HSV 偏移缓存，key 改为基于样式+物品的稳定 String 标识
     // 用于旧版兼容方法生成随机色相/饱和度/明度偏移
     private static final Map<String, float[][]> hsvOffsetCache = new HashMap<>();
@@ -253,6 +263,28 @@ public class TooltipRenderer {
     }
 
     /**
+     * 绘制变暗的滚动渐变描边（外描边 / 内描边用）。
+     * <p>
+     * 将主体边框的 fillColor 数组中每个颜色统一变暗后，调用
+     * {@link #drawGradientScrollingBorder(GuiGraphics, int, int, int, int, int[], float, int, int, StyleDefinition.BorderConfig, float)}
+     * 在指定位置渲染。外描边传入 {@code (x-1, y-1, w+2, h+2)}，内描边传入 {@code (x+1, y+1, w-2, h-2)}。
+     *
+     * @param fillColors  主体边框的填充色数组（不会被修改，内部拷贝后变暗）
+     * @param darkenFactor 变暗因子（0~1），1.0 不变，0.0 全黑；推荐 0.5
+     */
+    public static void drawDarkenedGradientScrollingBorder(GuiGraphics graphics, int x, int y, int width, int height,
+            int[] fillColors, float fadeAlpha, int targetWidth, int targetHeight,
+            StyleDefinition.BorderConfig borderConfig, float flowOffset, float darkenFactor) {
+        if (fillColors == null || fillColors.length == 0) return;
+        int[] darkened = new int[fillColors.length];
+        for (int i = 0; i < fillColors.length; i++) {
+            darkened[i] = ColorUtils.darkenColor(fillColors[i], darkenFactor);
+        }
+        drawGradientScrollingBorder(graphics, x, y, width, height, darkened, fadeAlpha,
+                targetWidth, targetHeight, borderConfig, flowOffset);
+    }
+
+    /**
      * 绘制滚动渐变边框（旧版兼容方法）。
      * 内部使用 rarityColor 配合 HSV 偏移生成颜色，并使用 ColorFlowAnimator 替代旧的 scrollOffset。
      */
@@ -265,9 +297,9 @@ public class TooltipRenderer {
         float[][] offsets = hsvOffsetCache.computeIfAbsent(cacheKey, k -> {
             float[][] genOffsets = new float[4][3];
             Random rand = new Random(targetColor);
-            double hueVariation = ConfigManager.getInstance().getHueVariation();
-            double valueVariation = ConfigManager.getInstance().getValueVariation();
-            double saturationVariation = ConfigManager.getInstance().getSaturationVariation();
+            double hueVariation = DEFAULT_HUE_VARIATION;
+            double valueVariation = DEFAULT_VALUE_VARIATION;
+            double saturationVariation = DEFAULT_SATURATION_VARIATION;
 
             for (int i = 0; i < 4; i++) {
                 genOffsets[i][0] = rand.nextFloat() * (float) hueVariation - (float) hueVariation / 2;
@@ -297,7 +329,7 @@ public class TooltipRenderer {
         // 使用 ColorFlowAnimator 替代旧的 scrollOffset
         // flowOffset 为归一化值(0~1)，乘以 targetP 转换为像素偏移
         float flowOffset = ConfigManager.getInstance().getColorFlowAnimator().getFlowOffset();
-        float gradientPeriod = (float) ConfigManager.getInstance().getGradientPeriod();
+        float gradientPeriod = DEFAULT_GRADIENT_PERIOD;
 
         float P = 2.0f * (width + height);
         float targetP = 2.0f * (targetWidth + targetHeight);
@@ -684,9 +716,9 @@ public class TooltipRenderer {
         float[][] offsets = hsvOffsetCache.computeIfAbsent(cacheKey, k -> {
             float[][] genOffsets = new float[4][3];
             Random rand = new Random(targetColor + 1);
-            double hueVariation = ConfigManager.getInstance().getHueVariation();
-            double valueVariation = ConfigManager.getInstance().getValueVariation();
-            double saturationVariation = ConfigManager.getInstance().getSaturationVariation();
+            double hueVariation = DEFAULT_HUE_VARIATION;
+            double valueVariation = DEFAULT_VALUE_VARIATION;
+            double saturationVariation = DEFAULT_SATURATION_VARIATION;
 
             for (int i = 0; i < 4; i++) {
                 genOffsets[i][0] = rand.nextFloat() * (float) hueVariation - (float) hueVariation / 2;
@@ -716,7 +748,7 @@ public class TooltipRenderer {
         // 使用 ColorFlowAnimator 替代旧的 scrollOffset
         // flowOffset 为归一化值(0~1)，乘以 targetP 转换为像素偏移
         float flowOffset = ConfigManager.getInstance().getColorFlowAnimator().getFlowOffset();
-        float gradientPeriod = (float) ConfigManager.getInstance().getGradientPeriod();
+        float gradientPeriod = DEFAULT_GRADIENT_PERIOD;
 
         int barY1 = y + 2;
         int barY2 = barY1 + titleBarHeight;
@@ -921,9 +953,9 @@ public class TooltipRenderer {
         var consumer = graphics.bufferSource().getBuffer(RenderType.gui());
         var matrix = graphics.pose().last().pose();
 
-        int tailSegments = ConfigManager.getInstance().getSwitchTailSegments();
-        float tailLengthFactor = (float) ConfigManager.getInstance().getSwitchTailLength();
-        float alphaExponent = (float) ConfigManager.getInstance().getSwitchTailAlphaExponent();
+        int tailSegments = DEFAULT_TAIL_SEGMENTS;
+        float tailLengthFactor = DEFAULT_TAIL_LENGTH;
+        float alphaExponent = DEFAULT_ALPHA_EXPONENT;
 
         int targetWidth = width;
         int targetHeight = height;

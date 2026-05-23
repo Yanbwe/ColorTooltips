@@ -2,5 +2,7 @@
   "tooltip.colortooltips.rarity.common": "常见",
   "tooltip.colortooltips.rarity.uncommon": "少见",
   "tooltip.colortooltips.rarity.rare": "稀有",
-  "tooltip.colortooltips.rarity.epic": "史诗"
+  "tooltip.colortooltips.rarity.epic": "史诗",
+  "colortooltips.config.reload_success": "ColorTooltips 配置已重新加载！",
+  "colortooltips.config.load_failed": "§c[ColorTooltips] §e%s§c 配置加载失败，将使用默认值"
 }

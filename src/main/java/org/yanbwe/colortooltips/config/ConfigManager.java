@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -82,6 +84,12 @@ public final class ConfigManager {
     private final ColorFlowAnimator animator = new ColorFlowAnimator();
 
     // ══════════════════════════════════════════════════════════
+    // 加载警告收集（供重载命令和登录事件使用）
+    // ══════════════════════════════════════════════════════════
+
+    private final List<String> loadWarnings = new ArrayList<>();
+
+    // ══════════════════════════════════════════════════════════
     // 构造与初始化
     // ══════════════════════════════════════════════════════════
 
@@ -112,68 +120,18 @@ public final class ConfigManager {
     }
 
     // ══════════════════════════════════════════════════════════
-    // 公共 API — 兼容方法（与旧 Config.java 默认值一致）
+    // 公共 API — 全局开关
     // ══════════════════════════════════════════════════════════
 
-    /** @return 始终 true（同旧版 Config.ENABLED 默认值） */
+    /** @return 模组是否启用（始终 true，后续可从 common.json 扩展） */
     public boolean isEnabled() { return true; }
 
-    /** @return 始终 true（同旧版 Config.CUSTOM_HEADER_ENABLED 默认值） */
-    public boolean isCustomHeaderEnabled() { return true; }
-
-    /** @return 背景透明度 0.97（同旧版 Config.BG_ALPHA 默认值） */
-    public double getBgAlpha() { return 0.97; }
-
-    /** @return 背景暗度因子 0.7（同旧版 Config.BG_DARKEN 默认值） */
-    public double getBgDarken() { return 0.7; }
-
-    // --- 兼容 stub（旧版 Config 边框/标题栏/颜色变化参数，默认值与原 Config.java 一致）---
-
-    /** @return 边框渐变开关 */
-    public boolean isBorderGradientEnabled() { return true; }
-
-    /** @return 标题栏渐变开关 */
-    public boolean isTitlebarGradientEnabled() { return true; }
-
-    /** @return 色相变化范围 */
-    public double getHueVariation() { return 0.1; }
-
-    /** @return 明度变化范围 */
-    public double getValueVariation() { return 0.4; }
-
-    /** @return 饱和度变化范围 */
-    public double getSaturationVariation() { return 0.1; }
-
-    /** @return 拖尾分段数 */
-    public int getSwitchTailSegments() { return 50; }
-
-    /** @return 拖尾长度因子 */
-    public double getSwitchTailLength() { return 1.6; }
-
-    /** @return 拖尾透明度衰减指数 */
-    public double getSwitchTailAlphaExponent() { return 0.5; }
-
-    /** @return 淡出延迟/ms */
-    public int getFadeOutDelay() { return 100; }
-
-    /** @return 淡入时长/ms */
-    public int getFadeInDuration() { return 100; }
-
-    /** @return 闪光动画时长/ms */
-    public int getSwitchFlashDuration() { return 500; }
-
-    /** @return 物品出现最小缩放 */
-    public double getItemScaleMin() { return 0.5; }
-
-    /** @return 颜色渐变周期 */
-    public double getGradientPeriod() { return 200.0; }
-
-    /** @return 颜色滚动速度 */
-    public double getScrollSpeed() { return 0.05; }
-
-    // ══════════════════════════════════════════════════════════
-    // 公共 API — 全局设置
-    // ══════════════════════════════════════════════════════════
+    /** @return 最近一次加载过程中产生的警告信息（已被消费，调用后清空） */
+    public List<String> getLoadWarnings() {
+        List<String> copy = new ArrayList<>(loadWarnings);
+        loadWarnings.clear();
+        return copy;
+    }
 
     /** @return 物品切换时颜色是否平滑过渡 */
     public boolean isSmoothColor() { return smoothColor; }
@@ -241,12 +199,16 @@ public final class ConfigManager {
      * <p>
      * 清空现有样式映射，重新读取并解析所有 JSON 文件。
      * 同时重置颜色流动引擎状态。
+     *
+     * @return 加载过程中产生的警告信息列表（样式名或 common.json），供聊天栏反馈
      */
-    public void reload() {
+    public List<String> reload() {
+        loadWarnings.clear();
         styles.clear();
         animator.fullReset();
         load();
         ColorTooltips.LOGGER.info("ConfigManager: configuration reloaded");
+        return new ArrayList<>(loadWarnings);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -319,6 +281,7 @@ public final class ConfigManager {
             parseCommonConfig(root);
         } catch (IOException | JsonSyntaxException e) {
             ColorTooltips.LOGGER.error("ConfigManager: failed to load common.json, using defaults", e);
+            loadWarnings.add("common.json");
             applyDefaults();
         }
     }
@@ -441,6 +404,7 @@ public final class ConfigManager {
             styles.put(styleName, style);
         } catch (IOException e) {
             ColorTooltips.LOGGER.error("ConfigManager: failed to read style file {}", file, e);
+            loadWarnings.add(styleName);
             // 降级：使用内存默认样式
             styles.put(styleName, StyleDefinition.createDefault());
         }
