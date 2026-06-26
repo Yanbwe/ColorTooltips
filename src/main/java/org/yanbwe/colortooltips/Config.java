@@ -1,9 +1,10 @@
 package org.yanbwe.colortooltips;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
-
+/**
+ * 配置类占位。
+ * 实际配置由 {@link org.yanbwe.colortooltips.config.ConfigManager} 从
+ * JSON 文件加载，不使用 NeoForge 的 ModConfigSpec 系统。
+ */
 public class Config {
-    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
-
-    static final ModConfigSpec SPEC = BUILDER.build();
+    private Config() {}
 }

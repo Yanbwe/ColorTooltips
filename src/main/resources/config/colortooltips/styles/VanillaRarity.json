@@ -1,0 +1,60 @@
+{
+  "border": {
+    "opacity": 1.0,
+    "colorFlowSpeed": 1,
+    "colorFlowDirection": "Clockwise",
+    "fillColor": [
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0 } }
+    ]
+  },
+  "backGround": {
+    "opacity": 0.9,
+    "colorFlowSpeed": 0.25,
+    "colorFlowDirection": "TopToDown",
+    "fillColor": [
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.8, "saturation": 0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.7, "saturation": 0.0 } }
+    ]
+  },
+  "titleBar": {
+    "enabled": true,
+    "twoHeight": true,
+    "opacity": 0.5,
+    "colorFlowSpeed": 1,
+    "colorFlowDirection": "LeftToRight",
+    "extraOpacityOnRight": false,
+    "fillColor": [
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": 0.0, "saturation": 0.0 } },
+      { "color": "@vanillaRarity", "colorModifier": { "brightness": -0.3, "saturation": 0.0 } }
+    ]
+  },
+  "itemName": {
+    "changeColor": {
+      "enabled": false,
+      "color": "@vanillaRarity"
+    }
+  },
+  "extraToolTip": {
+    "enabled": true,
+    "content": "@vanillaRarity",
+    "contentColor": "@vanillaRarity"
+  },
+  "itemModel": {
+    "enabled": true,
+    "bigSize": true
+  },
+  "animation": {
+    "itemModel": {
+      "switching": { "enabled": true, "startSize": 0.5 },
+      "appearing": { "enabled": true, "startSize": 0.5 }
+    },
+    "smoothMovement": { "realTimeEnabled": true, "speed": 1.0 },
+    "smoothScaling": { "enabled": true, "speed": 1.0 },
+    "fadeOut": { "enabled": true, "delay": 100, "duration": 200 },
+    "fadeIn": { "enabled": true, "duration": 50 },
+    "switchEffect": { "enabled": true, "color": "@vanillaRarity", "duration": 500, "length": 1.6, "segmentation": 50 }
+  }
+}

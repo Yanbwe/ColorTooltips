@@ -1,0 +1,69 @@
+{
+  "border": {
+    "opacity": 1.0,
+    "colorFlowSpeed": 0.5,
+    "colorFlowDirection": "Clockwise",
+    "fillColor": [
+      { "color": "A100FF" },
+      { "color": "FF0033" },
+      { "color": "FF9000" },
+      { "color": "D8FF00" },
+      { "color": "2AFF00" },
+      { "color": "00FFA9" },
+      { "color": "0099FF" },
+      { "color": "0000FF" }
+    ]
+  },
+  "backGround": {
+    "opacity": 0.8,
+    "colorFlowSpeed": 1,
+    "colorFlowDirection": "TopToDown",
+    "fillColor": [
+      { "color": "FFFFFF","colorModifier": { "brightness": -1, "saturation": 0.1 } }
+    ]
+  },
+  "titleBar": {
+    "enabled": true,
+    "twoHeight": true,
+    "opacity": 0.2,
+    "colorFlowSpeed": 1.0,
+    "colorFlowDirection": "LeftToRight",
+    "extraOpacityOnRight": false,
+    "fillColor": [
+      { "color": "A100FF" },
+      { "color": "FF0033" },
+      { "color": "FF9000" },
+      { "color": "D8FF00" },
+      { "color": "2AFF00" },
+      { "color": "00FFA9" },
+      { "color": "0099FF" },
+      { "color": "0000FF" }
+    ]
+  },
+  "itemName": {
+    "changeColor": {
+      "enabled": false,
+      "color": "A100FF"
+    }
+  },
+  "extraToolTip": {
+    "enabled": true,
+    "content": "@modID",
+    "contentColor": "7C7C7C"
+  },
+  "itemModel": {
+    "enabled": true,
+    "bigSize": true
+  },
+  "animation": {
+    "itemModel": {
+      "switching": { "enabled": true, "startSize": 0.5 },
+      "appearing": { "enabled": true, "startSize": 0.5 }
+    },
+    "smoothMovement": { "realTimeEnabled": true, "speed": 1 },
+    "smoothScaling": { "enabled": true, "speed": 1 },
+    "fadeOut": { "enabled": true, "delay": 100, "duration": 200 },
+    "fadeIn": { "enabled": true, "duration": 50 },
+    "switchEffect": { "enabled": false, "color": "000000", "duration": 500, "length": 1.6, "segmentation": 50 }
+  }
+}

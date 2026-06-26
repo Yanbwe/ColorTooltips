@@ -1,5 +1,8 @@
 {
-  "colortooltips.configuration.title": "ColorTooltips Configs",
-  "colortooltips.configuration.section.colortooltips.common.toml": "ColorTooltips Configs",
-  "colortooltips.configuration.section.colortooltips.common.toml.title": "ColorTooltips Configs"
+  "tooltip.colortooltips.rarity.common": "Common",
+  "tooltip.colortooltips.rarity.uncommon": "Uncommon",
+  "tooltip.colortooltips.rarity.rare": "Rare",
+  "tooltip.colortooltips.rarity.epic": "Epic",
+  "colortooltips.config.reload_success": "ColorTooltips configuration reloaded!",
+  "colortooltips.config.load_failed": "§c[ColorTooltips] Failed to load §e%s§c, using default values"
 }
