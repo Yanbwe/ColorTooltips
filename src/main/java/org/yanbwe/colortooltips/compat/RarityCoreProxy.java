@@ -102,7 +102,7 @@ public final class RarityCoreProxy {
         try {
             if (!methodGetRarityColorInit) {
                 methodGetRarityColorInit = true;
-                methodGetRarityColor = apiClass.getMethod("getRarityColor", int.class);
+                methodGetRarityColor = apiClass.getMethod("getColor", int.class);
             }
             if (methodGetRarityColor != null) {
                 int rgb = (int) methodGetRarityColor.invoke(null, rarity);
