@@ -252,10 +252,13 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
         float centerX = startDrawX + itemSize / 2f;
         float centerY = startDrawY + itemSize / 2f;
 
+        boolean posePushed = false;
+        try {
         context.pose().pushPose();
         context.pose().translate(centerX, centerY, 0);
         context.pose().scale(scale, scale, 1.0f);
         context.pose().translate(-centerX, -centerY, 0);
+        posePushed = true;
 
         // Bug 6 fix: 背景/边框绘制后 RenderSystem.enableDepthTest() 使深度测试保持开启，
         // ItemRenderer 使用的 renderType（如 translucentItemSheet）在深度测试开启时可能
@@ -277,9 +280,17 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
             renderItemAtSize(context, itemStack, startDrawX, startDrawY, itemSize);
             RenderSystem.enableDepthTest();
         }
-
-        context.pose().popPose();
-        RenderingContext.endTooltipItemRendering();
+        } finally {
+            if (posePushed) {
+                context.pose().popPose();
+            }
+            // 还原全局渲染状态，防止污染后续原版渲染（如附魔台、JEI 的 tooltip）
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+            context.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+            RenderSystem.enableDepthTest();
+            RenderSystem.disableBlend();
+            RenderingContext.endTooltipItemRendering();
+        }
     }
 
     /**
@@ -299,25 +310,31 @@ public class ColorHeaderComponent implements net.minecraft.world.inventory.toolt
 
         float half = itemSize / 2.0f;
 
-        context.pose().pushPose();
-        context.pose().translate(x + half, y + half, 150);
-        context.pose().mulPose(new Matrix4f().scaling(1.0f, -1.0f, 1.0f));
-        context.pose().scale((float) itemSize, (float) itemSize, (float) itemSize);
-
         boolean useFlatLighting = !bakedModel.usesBlockLight();
-        if (useFlatLighting) {
-            Lighting.setupForFlatItems();
+        boolean posePushed = false;
+        try {
+            context.pose().pushPose();
+            context.pose().translate(x + half, y + half, 150);
+            context.pose().mulPose(new Matrix4f().scaling(1.0f, -1.0f, 1.0f));
+            context.pose().scale((float) itemSize, (float) itemSize, (float) itemSize);
+            posePushed = true;
+
+            if (useFlatLighting) {
+                Lighting.setupForFlatItems();
+            }
+
+            TranslucentBufferSource translucentSource = TranslucentBufferSource.wrap(context.bufferSource());
+            itemRenderer.render(stack, ItemDisplayContext.GUI, false, context.pose(),
+                    translucentSource, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, bakedModel);
+            context.flush();
+        } finally {
+            // 还原光照与矩阵状态，防止污染后续原版渲染
+            if (useFlatLighting) {
+                Lighting.setupFor3DItems();
+            }
+            if (posePushed) {
+                context.pose().popPose();
+            }
         }
-
-        TranslucentBufferSource translucentSource = TranslucentBufferSource.wrap(context.bufferSource());
-        itemRenderer.render(stack, ItemDisplayContext.GUI, false, context.pose(),
-                translucentSource, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, bakedModel);
-        context.flush();
-
-        if (useFlatLighting) {
-            Lighting.setupFor3DItems();
-        }
-
-        context.pose().popPose();
     }
 }

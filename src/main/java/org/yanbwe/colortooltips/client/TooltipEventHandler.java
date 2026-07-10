@@ -279,8 +279,11 @@ public class TooltipEventHandler {
         float crossfadeProgress = TooltipAnimationSystem.getCrossfadeProgress();
         boolean crossfading = crossfadeProgress >= 0.0f;
 
+        boolean posePushed = false;
+        try {
         graphics.pose().pushPose();
         graphics.pose().translate(0.0, 0.0, 400.0);
+        posePushed = true;
 
         int innerX = renderX + borderSize + innerPadding;
         int innerY = renderY + borderSize + innerPadding;
@@ -378,9 +381,18 @@ public class TooltipEventHandler {
             graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, renderX, renderY, width, height, switchFlashProgress, fadeAlpha, isLeft, switchEffect, flashColor));
         }
 
-        graphics.flush();
-        graphics.disableScissor();
-        graphics.pose().popPose();
+        } finally {
+            if (posePushed) {
+                graphics.flush();
+                graphics.disableScissor();
+                graphics.pose().popPose();
+            }
+            // 还原全局渲染状态，防止污染后续原版渲染（如附魔台、JEI 的 tooltip）
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+            graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+            RenderSystem.enableDepthTest();
+            RenderSystem.disableBlend();
+        }
 
         if (liveRender && !isReplayPhase && !crossfading) {
             lastBorderColor = borderColor;

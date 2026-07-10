@@ -41,19 +41,24 @@ public abstract class GuiGraphicsMixin
     @Inject(method = "renderTooltipInternal", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltipInternalHead(Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, CallbackInfo info)
     {
-        if (tooltipStack.isEmpty() && minecraft.screen != null && minecraft.screen instanceof AbstractContainerScreen<?> containerScreen && containerScreen.getSlotUnderMouse() != null)
-        {
-            tooltipStack = containerScreen.getSlotUnderMouse().getItem();
-        }
+        try {
+            if (tooltipStack.isEmpty() && minecraft.screen != null && minecraft.screen instanceof AbstractContainerScreen<?> containerScreen && containerScreen.getSlotUnderMouse() != null)
+            {
+                tooltipStack = containerScreen.getSlotUnderMouse().getItem();
+            }
 
-        ItemStack stack = !tooltipStack.isEmpty() ? tooltipStack : ItemStack.EMPTY;
+            ItemStack stack = !tooltipStack.isEmpty() ? tooltipStack : ItemStack.EMPTY;
 
-        if (stack != null && !stack.isEmpty() && isItemSearching(stack)) {
-            return;
-        }
+            if (stack != null && !stack.isEmpty() && isItemSearching(stack)) {
+                return;
+            }
 
-        if (TooltipEventHandler.renderCustomTooltip((GuiGraphics)(Object)this, font, components, x, y, positioner, stack)) {
-            info.cancel();
+            if (TooltipEventHandler.renderCustomTooltip((GuiGraphics)(Object)this, font, components, x, y, positioner, stack)) {
+                info.cancel();
+            }
+        } finally {
+            // 自定义渲染取消后续 TAIL 注入时，确保 tooltipStack 在当前帧结束时清空，避免污染下一帧的原版渲染
+            tooltipStack = ItemStack.EMPTY;
         }
     }
 
