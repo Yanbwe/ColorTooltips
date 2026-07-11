@@ -177,8 +177,13 @@ public class TooltipEventHandler {
 
         if (isTextOnly && !cm.isOnlyTextTooltipsEnabled()) return false;
 
+        // 神化升级后的附魔台界面下，文本提示框关闭动画，避免与物品提示框共用单例状态导致飞动或异常透明度
+        boolean staticRender = isTextOnly && isApothEnchantmentScreen();
+
         StyleDefinition style = cm.getStyleForStack(stack, isTextOnly);
-        TooltipAnimationSystem.applyStyle(style, stack);
+        if (!staticRender) {
+            TooltipAnimationSystem.applyStyle(style, stack);
+        }
 
         String currentStyleName = cm.getStyleNameForStack(stack, isTextOnly);
         String lastStyleName = TooltipAnimationSystem.getLastStyleName();
@@ -198,7 +203,7 @@ public class TooltipEventHandler {
         animator.update();
         float flowFraction = animator.getInterpolatedFlowFraction(Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(true));
 
-        if (liveRender && !isReplayPhase) {
+        if (liveRender && !isReplayPhase && !staticRender) {
             renderedThisFrame = true;
             tooltipsRenderedThisFrame++;
 
@@ -251,7 +256,11 @@ public class TooltipEventHandler {
         );
 
         TooltipState state;
-        if (tooltipsRenderedThisFrame > 1) {
+        if (staticRender) {
+            // 静态绘制：目标位置、不透明，不参与单例动画器的位移与淡入淡出
+            state = TooltipAnimationSystem.createInstantState(target);
+            state.alpha = 1.0f;
+        } else if (tooltipsRenderedThisFrame > 1) {
             state = TooltipAnimationSystem.createInstantState(target);
         } else {
             state = TooltipAnimationSystem.update(animationStack, target);
@@ -270,7 +279,7 @@ public class TooltipEventHandler {
 
         float fadeAlpha = state.alpha;
 
-        if (styleChanged && liveRender && !isReplayPhase) {
+        if (styleChanged && liveRender && !isReplayPhase && !staticRender) {
             TooltipAnimationSystem.startCrossfade(currentStyleName,
                     lastBorderColor, lastBgColor,
                     borderColor, bgColor);
@@ -375,7 +384,7 @@ public class TooltipEventHandler {
         }
 
         float switchFlashProgress = TooltipAnimationSystem.getSwitchFlashProgress();
-        if (switchFlashProgress >= 0.0f) {
+        if (!staticRender && switchFlashProgress >= 0.0f) {
             int flashColor = TooltipAnimationSystem.getSwitchFlashColor();
             StyleDefinition.AnimationConfig.SwitchEffectConfig switchEffect = style.getAnimation().getSwitchEffect();
             graphics.drawManaged(() -> TooltipRenderer.drawEntryAnimation(graphics, renderX, renderY, width, height, switchFlashProgress, fadeAlpha, isLeft, switchEffect, flashColor));
@@ -387,14 +396,14 @@ public class TooltipEventHandler {
                 graphics.disableScissor();
                 graphics.pose().popPose();
             }
-            // 还原全局渲染状态，防止污染后续原版渲染（如附魔台、JEI 的 tooltip）
+            // 还原全局渲染状态，防止污染后续原版渲染（如附魔台的 tooltip）
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
             RenderSystem.enableDepthTest();
             RenderSystem.disableBlend();
         }
 
-        if (liveRender && !isReplayPhase && !crossfading) {
+        if (liveRender && !isReplayPhase && !crossfading && !staticRender) {
             lastBorderColor = borderColor;
             lastBgColor = bgColor;
         }
@@ -404,6 +413,17 @@ public class TooltipEventHandler {
 
     public static boolean isVirtualItem(ItemStack itemStack) {
         return itemStack != null && !itemStack.isEmpty() && itemStack.getTooltipImage().isPresent();
+    }
+
+    /**
+     * 判定当前界面是否为神化升级后的附魔台界面。
+     * 仅按界面类名识别，不硬依赖神化附魔模组，缺失时安全降级。
+     */
+    private static boolean isApothEnchantmentScreen() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen == null) return false;
+        return "dev.shadowsoffire.apothic_enchanting.table.ApothEnchantmentScreen"
+                .equals(mc.screen.getClass().getName());
     }
 
     private static int[] resolveFillColors(List<StyleDefinition.FillColorEntry> entries, ItemStack itemStack) {
