@@ -6,8 +6,10 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
+import net.minecraftforge.client.event.ColorTooltipPostEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -19,6 +21,7 @@ import org.slf4j.Logger;
 import org.yanbwe.colortooltips.client.TooltipEventHandler;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderClientTooltipComponent;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
+import org.yanbwe.colortooltips.tooltip.TooltipRenderState;
 import org.yanbwe.colortooltips.animation.TooltipLockManager;
 import org.yanbwe.colortooltips.config.ConfigManager;
 
@@ -55,6 +58,8 @@ public class ColorTooltips {
             MinecraftForge.EVENT_BUS.register(TooltipEventHandler.class);
             MinecraftForge.EVENT_BUS.register(TooltipLockManager.class);
             MinecraftForge.EVENT_BUS.register(ClientLoginListener.class);
+            MinecraftForge.EVENT_BUS.addListener(ClientTooltipStackListener::onRenderTooltip);
+            MinecraftForge.EVENT_BUS.addListener(ClientTooltipStackListener::onColorTooltipPost);
 
             // 注册 /colortooltips reload 客户端命令
             MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent cmdEvent) -> {
@@ -90,6 +95,7 @@ public class ColorTooltips {
         public static void onRegisterTooltipFactories(RegisterClientTooltipComponentFactoriesEvent event) {
             event.register(ColorHeaderComponent.class, ColorHeaderClientTooltipComponent::new);
         }
+
     }
 
     /**

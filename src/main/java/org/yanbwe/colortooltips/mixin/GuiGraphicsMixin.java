@@ -23,6 +23,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.yanbwe.colortooltips.client.TooltipEventHandler;
 import org.yanbwe.colortooltips.tooltip.TooltipRenderPolicy;
+import org.yanbwe.colortooltips.tooltip.TooltipRenderState;
 
 @Mixin(value = GuiGraphics.class, priority = 1001)
 public abstract class GuiGraphicsMixin
@@ -33,6 +34,9 @@ public abstract class GuiGraphicsMixin
 
     @Shadow(remap = false)
     private ItemStack tooltipStack = ItemStack.EMPTY;
+
+    @Shadow
+    private void renderTooltip(ItemStack stack, boolean flag);
 
     private static final String SEARCH_TIME_REMAINING = "SearchTimeRemaining";
 
@@ -45,6 +49,11 @@ public abstract class GuiGraphicsMixin
     @Inject(method = "renderTooltipInternal", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltipInternalHead(Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, CallbackInfo info)
     {
+        // 捕获当前悬停物品：优先使用 Mixin 捕获值，其次从权威渲染状态读取
+        if (tooltipStack.isEmpty()) {
+            tooltipStack = TooltipRenderState.getTooltipStack();
+        }
+
         // 尝试从当前屏幕的 slot 获取物品
         if (tooltipStack.isEmpty() && minecraft.screen != null && minecraft.screen instanceof AbstractContainerScreen<?> containerScreen && containerScreen.getSlotUnderMouse() != null)
         {
@@ -53,6 +62,7 @@ public abstract class GuiGraphicsMixin
 
         // 获取用于渲染的物品堆（有物品时用物品，无物品时用EMPTY表示纯文本）
         ItemStack stack = !tooltipStack.isEmpty() ? tooltipStack : ItemStack.EMPTY;
+        TooltipRenderState.setTooltipStack(stack);
         
         // 搜索物品不接管
         if (stack != null && !stack.isEmpty() && isItemSearching(stack)) {
@@ -69,6 +79,7 @@ public abstract class GuiGraphicsMixin
     private void onRenderTooltipInternalTail(Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, CallbackInfo info)
     {
         tooltipStack = ItemStack.EMPTY;
+        TooltipRenderState.reset();
     }
 
     /**
