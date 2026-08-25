@@ -1,3 +1,5 @@
+
+
 # ColorTooltips
 ColorTooltips是一个提供提示框样式的模组。它的特点有两个，绚丽与灵动。
 # 绚丽
@@ -24,4 +26,4 @@ ColorTooltips是一个提供提示框样式的模组。它的特点有两个，�
 与 SearchCarefully 兼容！  
 不兼容修改提示框样式的模组，但是兼容向其添加内容的模组。
 # 配置项
-你可以配置背景透明度和颜色流动效果，配置文件在config里。
+你可以配置背景透明度和颜色流动效果，配置文件在config/colortooltips里。
