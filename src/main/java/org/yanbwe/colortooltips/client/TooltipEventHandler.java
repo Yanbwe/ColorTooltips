@@ -177,6 +177,12 @@ public class TooltipEventHandler {
 
         if (isTextOnly && !cm.isOnlyTextTooltipsEnabled()) return false;
 
+        // JEI 配方页里由联动模组在"配方绘制阶段"自行调用 renderComponentTooltip 画出的文本提示框
+        // （例如 Apothic Enchanting 的位阶/进度条数值），其渲染时机与普通物品提示框不同，
+        // 自绘会与 JEI 的配方层渲染相互干扰（实测：位置/尺寸/透明度均正确却不可见）。
+        // 因此这类提示框不接管，交还原版绘制。
+        if (isTextOnly && isJeiRecipeScreen()) return false;
+
         // 神化升级后的附魔台界面下，文本提示框关闭动画，避免与物品提示框共用单例状态导致飞动或异常透明度
         boolean staticRender = isTextOnly && isApothEnchantmentScreen();
 
@@ -237,6 +243,12 @@ public class TooltipEventHandler {
         int targetWidth = contentWidth + borderSize * 2 + innerPadding * 2;
         int targetHeight = contentHeight + borderSize * 2 + innerPadding * 2 + heightAdjust;
 
+        // 文本提示框（无物品栈）没有物品模型，尺寸完全由内容决定；
+        // 若尺寸沿用上一个提示框的动画中间值，会被下方的 scissor 裁掉内容，表现为"闪一下就不显示"。
+        if (!hasValidItem) {
+            TooltipAnimationSystem.snapSizeToTarget(targetWidth, targetHeight);
+        }
+
         var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
         boolean isLeft = targetPos.x() + targetWidth / 2 < x;
         TooltipAnchor anchor = isLeft ? TooltipAnchor.RIGHT_TOP : TooltipAnchor.LEFT_TOP;
@@ -260,6 +272,13 @@ public class TooltipEventHandler {
             // 静态绘制：目标位置、不透明，不参与单例动画器的位移与淡入淡出
             state = TooltipAnimationSystem.createInstantState(target);
             state.alpha = 1.0f;
+            // 静态绘制不置 renderedThisFrame，因此本帧的 ScreenEvent.Render.Post 会认为"没有活提示框"，
+            // 进而重放上一次缓存的提示框并把它盖掉（表现为什么都不显示）。
+            // 清空缓存即可让重放无内容可画；物品提示框的动画与重放不受影响。
+            cachedComponents = null;
+            cachedFont = null;
+            cachedPositioner = null;
+            cachedStack = ItemStack.EMPTY;
         } else if (tooltipsRenderedThisFrame > 1) {
             state = TooltipAnimationSystem.createInstantState(target);
         } else {
@@ -424,6 +443,22 @@ public class TooltipEventHandler {
         if (mc.screen == null) return false;
         return "dev.shadowsoffire.apothic_enchanting.table.ApothEnchantmentScreen"
                 .equals(mc.screen.getClass().getName());
+    }
+
+    /**
+     * 判定当前界面是否为 JEI 的配方查看界面。
+     * <p>
+     * JEI 的配方页（含联动模组自定义的配方类别，例如 Apothic Enchanting 的灌注配方）会在
+     * 配方绘制阶段自行调用 {@code renderComponentTooltip} 画出数值提示框（位阶/进度条等）。
+     * 这类提示框的调用时机与普通物品提示框不同，本模组的自绘会与 JEI 的配方层渲染相互干扰，
+     * 因此需要单独识别并交还原版绘制。
+     * <p>
+     * 仅按界面类名识别，不硬依赖 JEI，缺失时安全降级。
+     */
+    private static boolean isJeiRecipeScreen() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.screen != null
+                && mc.screen.getClass().getName().startsWith("mezz.jei.gui.recipes.");
     }
 
     private static int[] resolveFillColors(List<StyleDefinition.FillColorEntry> entries, ItemStack itemStack) {

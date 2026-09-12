@@ -50,6 +50,13 @@ public class TooltipAnimationSystem {
 
     private static boolean needsAnimatorReset = false;
 
+    /**
+     * 本帧是否重新观测到提示框（出现或切换）。
+     * 由 {@link #onLiveItemObserved(ItemStack)} / {@link #onTextOnlyTooltipObserved()} 置位，
+     * 由 {@link #onFrameWithoutLiveItem()} 消费，用于避免把"刚出现"误判为"已丢失"。
+     */
+    private static boolean appearanceObservedThisFrame = false;
+
     static {
         ANIMATOR.reset();
         lastState = ANIMATOR.tickAndGet();
@@ -94,6 +101,7 @@ public class TooltipAnimationSystem {
 
     public static void onTextOnlyTooltipObserved() {
         long now = Util.getMillis();
+        appearanceObservedThisFrame = true;
         if (!isTextOnlyMode && activeStack.isEmpty()) {
             TooltipLifecycleEventBus.publish(TooltipLifecycleEventType.SHOW_FROM_HIDDEN);
         }
@@ -112,6 +120,7 @@ public class TooltipAnimationSystem {
         if (stack == null || stack.isEmpty()) return;
 
         long now = Util.getMillis();
+        appearanceObservedThisFrame = true;
 
         boolean isFirstAppearance = activeStack.isEmpty();
         // NeoForge 1.21.1 适配：isSameItemSameTags → isSameItemSameComponents
@@ -133,6 +142,12 @@ public class TooltipAnimationSystem {
     }
 
     public static void onFrameWithoutLiveItem() {
+        // 本帧已经重新观测到提示框（含界面刚切换后的首帧），不算"丢失"。
+        // 否则会跳过一次淡出延迟，直接把提示框判定为消失（表现为闪一下即消失）。
+        if (appearanceObservedThisFrame) {
+            appearanceObservedThisFrame = false;
+            return;
+        }
         if (TooltipLockManager.shouldPreventTooltipHide()) return;
         if (activeStack.isEmpty() && !isTextOnlyMode) return;
         if (!fadeOutEnabled) return;
@@ -200,6 +215,7 @@ public class TooltipAnimationSystem {
         lastVisibleTimeMs = 0L;
         lostCandidateStartTimeMs = 0L;
         visibleRequested = false;
+        appearanceObservedThisFrame = false;
         switchFlashStartTimeMs = -1L;
         fadeInStartTimeMs = -1L;
         colorAnimStartMs = -1L;
@@ -219,6 +235,9 @@ public class TooltipAnimationSystem {
     public static float getLockedAnchorY() { return TooltipLockManager.getLockedAnchorY(); }
     public static void setNeedsAnimatorReset(boolean needsReset) { needsAnimatorReset = needsReset; }
 
+    /**
+     * 生成一个直接成帧的提示框状态（尺寸、锚点、过渡进度均对齐目标），不参与缓动。
+     */
     public static TooltipState createInstantState(TooltipTarget target) {
         TooltipState state = new TooltipState();
         state.width = target.width;
@@ -233,6 +252,14 @@ public class TooltipAnimationSystem {
         state.colorArgb = target.colorArgb;
         state.colorArgb = applyColorAnimation(state.colorArgb);
         return state;
+    }
+
+    /**
+     * 把单例动画器的尺寸直接对齐到目标，用于无物品模型的文本提示框。
+     * 只改尺寸，不触碰透明度、锚点与过渡进度等其他动画状态。
+     */
+    public static void snapSizeToTarget(int width, int height) {
+        ANIMATOR.snapSize(width, height);
     }
 
     public static void applyStyle(StyleDefinition style, ItemStack stack) {
