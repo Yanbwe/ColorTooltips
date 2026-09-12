@@ -107,7 +107,7 @@ public class ColorTooltips {
             if (warningsShown) return;
             warningsShown = true;
 
-            List<String> warnings = ConfigManager.getInstance().getLoadWarnings();
+            List<String> warnings = ConfigManager.getInstance().consumeLoadWarnings();
             if (warnings.isEmpty()) return;
 
             for (String name : warnings) {

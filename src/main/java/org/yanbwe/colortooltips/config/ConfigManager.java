@@ -126,8 +126,13 @@ public final class ConfigManager {
     /** @return 模组是否启用（始终 true，后续可从 common.json 扩展） */
     public boolean isEnabled() { return true; }
 
-    /** @return 最近一次加载过程中产生的警告信息（已被消费，调用后清空） */
+    /** @return 最近一次加载过程中产生的警告信息（只读副本，不清空） */
     public List<String> getLoadWarnings() {
+        return new ArrayList<>(loadWarnings);
+    }
+
+    /** @return 最近一次加载过程中产生的警告信息（消费后清空） */
+    public List<String> consumeLoadWarnings() {
         List<String> copy = new ArrayList<>(loadWarnings);
         loadWarnings.clear();
         return copy;

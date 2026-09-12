@@ -13,9 +13,6 @@ import net.minecraft.Util;
  */
 public class ColorFlowAnimator {
 
-    /** 流动速度。0 = 不流动，1 = 正常速度，>1 = 加速。 */
-    private double speed;
-
     /** 当前时间基准偏移值（归一化，0~1 为一个完整周期） */
     private float flowOffset;
     /** 上一帧的 delta 毫秒，用于帧间插值消除低流速时的卡顿感 */
@@ -24,11 +21,6 @@ public class ColorFlowAnimator {
     private long lastUpdateTime;
 
     public ColorFlowAnimator() {
-        this(0.0);
-    }
-
-    public ColorFlowAnimator(double initialSpeed) {
-        this.speed = initialSpeed;
         this.flowOffset = 0f;
         this.lastUpdateTime = 0L;
     }
@@ -79,28 +71,6 @@ public class ColorFlowAnimator {
     }
 
     /**
-     * 动态设置流动速度（从样式配置读取 colorFlowSpeed）。
-     * @param speed 流动速度，0 = 不流动，1 = 正常速度，>1 = 加速
-     */
-    public void setSpeed(double speed) {
-        this.speed = speed;
-    }
-
-    /**
-     * @return 当前设置的流动速度
-     */
-    public double getSpeed() {
-        return speed;
-    }
-
-    /**
-     * @return 是否正在流动（speed > 0）
-     */
-    public boolean isFlowing() {
-        return speed > 0.0;
-    }
-
-    /**
      * 重置偏移值为 0，但不重置时间基准。
      * 在切换物品时调用，使流动从起点重新开始，同时避免因时间基准重置造成的跳变。
      */
@@ -114,6 +84,5 @@ public class ColorFlowAnimator {
     public void fullReset() {
         this.flowOffset = 0f;
         this.lastUpdateTime = 0L;
-        this.speed = 0.0;
     }
 }
