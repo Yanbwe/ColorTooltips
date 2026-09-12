@@ -83,6 +83,15 @@ public class TooltipAnimator {
         state.transitionProgress = 0.0f;
     }
 
+    /** 仅把尺寸直接对齐到给定值，用于无物品模型的文本提示框（尺寸由内容决定）。 */
+    public void snapSize(float width, float height) {
+        if (!initialized) {
+            return;
+        }
+        state.width = width;
+        state.height = height;
+    }
+
     public void resetAlpha() {
         if (!initialized) {
             return;

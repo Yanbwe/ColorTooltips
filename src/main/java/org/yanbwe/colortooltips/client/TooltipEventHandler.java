@@ -270,6 +270,12 @@ public class TooltipEventHandler {
         int targetWidth = contentWidth + borderSize * 2 + innerPadding * 2;
         int targetHeight = contentHeight + borderSize * 2 + innerPadding * 2 + heightAdjust;
 
+        // 文本提示框（无物品栈）没有物品模型，尺寸完全由内容决定；
+        // 若尺寸沿用上一个提示框的动画中间值，会被下方的 scissor 裁掉内容，表现为"闪一下就不显示"。
+        if (!hasValidItem) {
+            TooltipAnimationSystem.snapSizeToTarget(targetWidth, targetHeight);
+        }
+
         var targetPos = positioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), x, y, targetWidth, targetHeight);
         boolean isLeft = targetPos.x() + targetWidth / 2 < x;
         TooltipAnchor anchor = isLeft ? TooltipAnchor.RIGHT_TOP : TooltipAnchor.LEFT_TOP;

@@ -56,6 +56,13 @@ public class TooltipAnimationSystem {
     /** 多提示框帧后标记：下帧首个 update() 需强制初始化 ANIMATOR 位置，避免从错误起点缓动产生重影 */
     private static boolean needsAnimatorReset = false;
 
+    /**
+     * 本帧是否重新观测到提示框（出现或切换）。
+     * 由 {@link #onLiveItemObserved(ItemStack)} / {@link #onTextOnlyTooltipObserved()} 置位，
+     * 由 {@link #onFrameWithoutLiveItem()} 消费，用于避免把"刚出现"误判为"已丢失"。
+     */
+    private static boolean appearanceObservedThisFrame = false;
+
     static {
         ANIMATOR.reset();
         lastState = ANIMATOR.tickAndGet();
@@ -116,6 +123,7 @@ public class TooltipAnimationSystem {
      */
     public static void onTextOnlyTooltipObserved() {
         long now = Util.getMillis();
+        appearanceObservedThisFrame = true;
 
         // 从隐藏状态首次显示纯文本提示框
         if (!isTextOnlyMode && activeStack.isEmpty()) {
@@ -143,6 +151,7 @@ public class TooltipAnimationSystem {
         }
 
         long now = Util.getMillis();
+        appearanceObservedThisFrame = true;
 
         boolean isFirstAppearance = activeStack.isEmpty();
         boolean itemChanged = !isFirstAppearance && !ItemStack.isSameItemSameTags(activeStack, stack);
@@ -166,6 +175,12 @@ public class TooltipAnimationSystem {
     }
 
     public static void onFrameWithoutLiveItem() {
+        // 本帧已经重新观测到提示框（含界面刚切换后的首帧），不算"丢失"。
+        // 否则会跳过一次淡出延迟，直接把提示框判定为消失（表现为闪一下即消失）。
+        if (appearanceObservedThisFrame) {
+            appearanceObservedThisFrame = false;
+            return;
+        }
         if (TooltipLockManager.shouldPreventTooltipHide()) {
             return;
         }
@@ -259,6 +274,7 @@ public class TooltipAnimationSystem {
         lastVisibleTimeMs = 0L;
         lostCandidateStartTimeMs = 0L;
         visibleRequested = false;
+        appearanceObservedThisFrame = false;
         switchFlashStartTimeMs = -1L;
         fadeInStartTimeMs = -1L;
         colorAnimStartMs = -1L;
@@ -325,6 +341,17 @@ public class TooltipAnimationSystem {
         // 应用进行中的颜色动画（跨物品颜色过渡）
         state.colorArgb = applyColorAnimation(state.colorArgb);
         return state;
+    }
+
+    /**
+     * 把单例动画器的尺寸直接对齐到目标，用于无物品模型的文本提示框。
+     * <p>
+     * 文本提示框的尺寸严格由内容决定，而 {@link TooltipState} 中动画中的
+     * {@code width/height} 会被用作渲染裁剪框的边界；若沿用一个尺寸不同的
+     * 物品提示框的中间值，内容会被裁掉。物品提示框的尺寸缓动不受影响。
+     */
+    public static void snapSizeToTarget(int width, int height) {
+        ANIMATOR.snapSize(width, height);
     }
 
     // ══════════════════════════════════════════════════════════
