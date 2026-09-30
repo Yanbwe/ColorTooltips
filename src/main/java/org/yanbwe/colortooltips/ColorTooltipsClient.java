@@ -1,7 +1,6 @@
 package org.yanbwe.colortooltips;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -15,6 +14,7 @@ import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactori
 import net.neoforged.neoforge.common.NeoForge;
 import org.yanbwe.colortooltips.animation.TooltipLockManager;
 import org.yanbwe.colortooltips.client.TooltipEventHandler;
+import org.yanbwe.colortooltips.command.ColorTooltipsCommand;
 import org.yanbwe.colortooltips.config.ConfigManager;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderClientTooltipComponent;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
@@ -43,31 +43,8 @@ public class ColorTooltipsClient {
     }
 
     private void onRegisterClientCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(
-            Commands.literal("colortooltips")
-                .then(Commands.literal("reload")
-                    .executes(ctx -> {
-                        List<String> warnings = ConfigManager.getInstance().reload();
-                        if (warnings.isEmpty()) {
-                            ctx.getSource().sendSuccess(
-                                () -> Component.translatable("colortooltips.config.reload_success"),
-                                false
-                            );
-                        } else {
-                            ctx.getSource().sendSuccess(
-                                () -> Component.translatable("colortooltips.config.reload_success"),
-                                false
-                            );
-                            for (String name : warnings) {
-                                ctx.getSource().sendFailure(
-                                    Component.translatable("colortooltips.config.load_failed", name)
-                                );
-                            }
-                        }
-                        return 1;
-                    })
-                )
-        );
+        // /colortooltips reload 与 /colortooltips bypass ...
+        ColorTooltipsCommand.register(event.getDispatcher());
     }
 
     private void onRegisterTooltipFactories(final RegisterClientTooltipComponentFactoriesEvent event) {

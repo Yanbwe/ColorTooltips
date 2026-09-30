@@ -65,6 +65,13 @@ public final class ConfigManager {
     private StyleSelector styleSelector;
 
     // ══════════════════════════════════════════════════════════
+    // 让位名单（来自 common.json bypass 块）
+    // 命中的物品完全不接管，交还原版渲染（issue #16）
+    // ══════════════════════════════════════════════════════════
+
+    private final TooltipBypassMatcher tooltipBypass = new TooltipBypassMatcher();
+
+    // ══════════════════════════════════════════════════════════
     // 样式映射
     // ══════════════════════════════════════════════════════════
 
@@ -135,6 +142,62 @@ public final class ConfigManager {
     public boolean isTooltipLockEnabled() { return tooltipLockEnabled; }
     public double getLockSensitivity() { return lockSensitivity; }
     public boolean isOnlyTextTooltipsEnabled() { return onlyTextTooltipsEnabled; }
+
+    /**
+     * 判断该物品是否在让位名单内（作者已魔改过提示框，本模组不应接管）。
+     * <p>
+     * 命中后本模组对该物品的行为等同于未安装：不替换物品名头部、不插入附加行、
+     * 不覆盖边框与背景色、不参与动画。
+     *
+     * @param stack 物品栈，null 或空时返回 false（纯文本提示框不受名单影响）
+     * @return 命中让位名单时返回 true
+     */
+    public boolean isTooltipBypassed(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        if (tooltipBypass.isEmpty()) {
+            return false;
+        }
+        var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (key == null) {
+            return false;
+        }
+        return tooltipBypass.matches(key.getNamespace(), key.toString());
+    }
+
+    /**
+     * @return 让位名单匹配器（只读用途：诊断日志、客户端命令展示）
+     */
+    public TooltipBypassMatcher getTooltipBypass() {
+        return tooltipBypass;
+    }
+
+    /**
+     * 热应用命令层刚写回文件的让位名单，无需重新读取整个配置。
+     * <p>
+     * 供 {@code /colortooltips bypass} 命令使用：命令改动的是磁盘上的 JSON，
+     * 这里把同一份数据同步进内存，使改动立即生效。
+     *
+     * @param enabled 名单总开关
+     * @param mods    命名空间列表
+     * @param items   物品注册名列表
+     */
+    public void applyBypassLists(boolean enabled, java.util.Collection<String> mods, java.util.Collection<String> items) {
+        tooltipBypass.setLists(enabled, mods, items);
+    }
+
+    /** @return 让位名单总开关是否启用 */
+    public boolean isTooltipBypassEnabled() {
+        return tooltipBypass.isEnabled();
+    }
+
+    /**
+     * @return {@code config/colortooltips/common.json} 的路径（供让位名单命令写回）
+     */
+    public Path getCommonConfigPath() {
+        return commonConfigPath;
+    }
 
     public StyleDefinition getStyle(String styleName) {
         if (styleName == null || styleName.isEmpty()) return getFallbackStyle();
@@ -263,6 +326,45 @@ public final class ConfigManager {
             rarityCoreBlock = createDefaultRarityCoreBlock();
         }
         styleSelector = new StyleSelector(commonBlock, rarityCoreBlock);
+
+        // bypass：让位名单（issue #16）
+        parseBypassBlock(root.getAsJsonObject("bypass"));
+    }
+
+    /**
+     * 解析 bypass 让位名单块。
+     * <p>
+     * 结构：{@code {"enabled": true, "mods": ["modid"], "items": ["modid:path"]}}。
+     * 块缺失时清空名单（保持历史行为：全部接管）。
+     * <p>
+     * Parses the {@code bypass} block. When absent, the list is cleared so that the
+     * pre-existing "take over everything" behavior is preserved.
+     */
+    private void parseBypassBlock(JsonObject bypassObj) {
+        if (bypassObj == null) {
+            tooltipBypass.setLists(true, null, null);
+            return;
+        }
+        boolean enabled = getJsonBoolean(bypassObj, "enabled", true);
+        tooltipBypass.setLists(enabled, getJsonStringList(bypassObj, "mods"), getJsonStringList(bypassObj, "items"));
+    }
+
+    /**
+     * 从 JSON 对象读取字符串数组，缺失、类型错误或非字符串元素时忽略。
+     */
+    private static List<String> getJsonStringList(JsonObject obj, String key) {
+        List<String> result = new ArrayList<>();
+        JsonElement el = obj.get(key);
+        if (el == null || !el.isJsonArray()) {
+            return result;
+        }
+        for (JsonElement item : el.getAsJsonArray()) {
+            if (item == null || item.isJsonNull() || !item.isJsonPrimitive()) {
+                continue;
+            }
+            result.add(item.getAsString());
+        }
+        return result;
     }
 
     private StyleSelector.SelectorBlock parseSelectorBlock(JsonObject blockObj) {
@@ -299,6 +401,8 @@ public final class ConfigManager {
         lockSensitivity = 10.0;
         onlyTextTooltipsEnabled = true;
         styleSelector = new StyleSelector(createDefaultCommonBlock(), createDefaultRarityCoreBlock());
+        // 配置文件损坏时清空让位名单：宁可接管，也不要让用户配的名单半生效
+        tooltipBypass.setLists(true, null, null);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -363,6 +467,11 @@ public final class ConfigManager {
                "  },\n" +
                "  \"onlyTextTooltips\": {\n" +
                "    \"enabled\": true\n" +
+               "  },\n" +
+               "  \"bypass\": {\n" +
+               "    \"enabled\": true,\n" +
+               "    \"mods\": [],\n" +
+               "    \"items\": []\n" +
                "  },\n" +
                "  \"smoothColor\": true\n" +
                "}\n";

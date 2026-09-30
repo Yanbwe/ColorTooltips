@@ -53,6 +53,9 @@ public class TooltipEventHandler {
 
         if (isVirtualItem(itemStack)) return;
 
+        // 让位名单命中：作者已魔改过提示框，保持原版内容一字不动（issue #16）
+        if (ConfigManager.getInstance().isTooltipBypassed(itemStack)) return;
+
         StyleDefinition style = ConfigManager.getInstance().getStyleForStack(itemStack, false);
         boolean hasHeaderContent = style.getItemModel().isEnabled()
                 || style.getTitleBar().isTwoHeight();
@@ -97,6 +100,9 @@ public class TooltipEventHandler {
 
         var itemStack = event.getItemStack();
         if (itemStack == null || itemStack.isEmpty()) return;
+
+        // 让位名单命中：不覆盖原版边框/背景色（issue #16）
+        if (ConfigManager.getInstance().isTooltipBypassed(itemStack)) return;
 
         StyleDefinition style = ConfigManager.getInstance().getStyleForStack(itemStack, false);
 
@@ -167,6 +173,10 @@ public class TooltipEventHandler {
     public static boolean renderCustomTooltip(GuiGraphics graphics, Font font, List<ClientTooltipComponent> components, int x, int y, ClientTooltipPositioner positioner, ItemStack stack, boolean liveRender) {
         ConfigManager cm = ConfigManager.getInstance();
         if (!cm.isEnabled()) return false;
+
+        // 让位名单命中：完全不接管，交给原版渲染（issue #16）
+        if (cm.isTooltipBypassed(stack)) return false;
+
         if (components.isEmpty()) return false;
 
         boolean isVirtual = isVirtualItem(stack);
