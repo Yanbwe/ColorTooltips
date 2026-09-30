@@ -2,7 +2,6 @@ package org.yanbwe.colortooltips;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
@@ -17,6 +16,7 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import org.yanbwe.colortooltips.client.TooltipEventHandler;
+import org.yanbwe.colortooltips.command.ColorTooltipsCommand;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderClientTooltipComponent;
 import org.yanbwe.colortooltips.tooltip.ColorHeaderComponent;
 import org.yanbwe.colortooltips.animation.TooltipLockManager;
@@ -56,34 +56,9 @@ public class ColorTooltips {
             MinecraftForge.EVENT_BUS.register(TooltipLockManager.class);
             MinecraftForge.EVENT_BUS.register(ClientLoginListener.class);
 
-            // 注册 /colortooltips reload 客户端命令
-            MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent cmdEvent) -> {
-                cmdEvent.getDispatcher().register(
-                    Commands.literal("colortooltips")
-                        .then(Commands.literal("reload")
-                            .executes(ctx -> {
-                                List<String> warnings = ConfigManager.getInstance().reload();
-                                if (warnings.isEmpty()) {
-                                    ctx.getSource().sendSuccess(
-                                        () -> Component.translatable("colortooltips.config.reload_success"),
-                                        false
-                                    );
-                                } else {
-                                    ctx.getSource().sendSuccess(
-                                        () -> Component.translatable("colortooltips.config.reload_success"),
-                                        false
-                                    );
-                                    for (String name : warnings) {
-                                        ctx.getSource().sendFailure(
-                                            Component.translatable("colortooltips.config.load_failed", name)
-                                        );
-                                    }
-                                }
-                                return 1;
-                            })
-                        )
-                );
-            });
+            // 注册客户端命令：/colortooltips reload 与 /colortooltips bypass ...
+            MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent cmdEvent) ->
+                ColorTooltipsCommand.register(cmdEvent.getDispatcher()));
         }
 
         @SubscribeEvent
